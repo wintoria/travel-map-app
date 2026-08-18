@@ -1,12 +1,21 @@
 "use client";
 import Link from "next/link";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
 export default function AddPlaceModal({ currentView }: { currentView: string }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Extract data passed from the map search
+  const defaultName = searchParams.get("name") || "";
+  const defaultLat = searchParams.get("lat") || "";
+  const defaultLng = searchParams.get("lng") || "";
+  
+  // Check if coordinates were provided by the map (to lock the inputs)
+  const isFromMap = !!defaultLat && !!defaultLng;
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault(); // Prevent default page reload
@@ -128,6 +137,7 @@ export default function AddPlaceModal({ currentView }: { currentView: string }) 
                 type="text" 
                 name="name"
                 required
+                defaultValue={defaultName}
                 className="w-full border border-gray-300 rounded-lg p-2 text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                 placeholder="np. Bakkerij Wolf"
               />
@@ -141,7 +151,9 @@ export default function AddPlaceModal({ currentView }: { currentView: string }) 
                   type="text" 
                   name="lat"
                   required
-                  className="w-full border border-gray-300 rounded-lg p-2 text-gray-800 focus:ring-2 focus:ring-blue-500 outline-none" 
+                  defaultValue={defaultLat}
+                  readOnly={isFromMap}
+                  className={`w-full border border-gray-300 rounded-lg p-2 outline-none ${isFromMap ? 'bg-gray-100 text-gray-500' : 'text-gray-800 focus:ring-2 focus:ring-blue-500'}`} 
                   placeholder="np. 53.428" 
                 />
               </div>
@@ -151,7 +163,9 @@ export default function AddPlaceModal({ currentView }: { currentView: string }) 
                   type="text" 
                   name="lng"
                   required
-                  className="w-full border border-gray-300 rounded-lg p-2 text-gray-800 focus:ring-2 focus:ring-blue-500 outline-none" 
+                  defaultValue={defaultLng}
+                  readOnly={isFromMap}
+                  className={`w-full border border-gray-300 rounded-lg p-2 outline-none ${isFromMap ? 'bg-gray-100 text-gray-500' : 'text-gray-800 focus:ring-2 focus:ring-blue-500'}`} 
                   placeholder="np. 14.552" 
                 />
               </div>
