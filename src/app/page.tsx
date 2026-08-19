@@ -4,6 +4,7 @@ import PlaceList from "@/components/PlaceList";
 import Link from "next/link";
 import AddPlaceModal from "@/components/AddPlaceModal";
 import ViewPlaceModal from "@/components/ViewPlaceModal";
+import EditPlaceModal from "@/components/EditPlaceModal";
 
 export default async function Home({
   searchParams,
@@ -33,8 +34,10 @@ export default async function Home({
 
       {/* Form modal (renders only when showModal is true) */}
       {showModal && <AddPlaceModal currentView={view} />}
-      
+
       <ViewPlaceModal />
+
+      <EditPlaceModal currentView="{currentView}"/>
     </main>
   );
 }

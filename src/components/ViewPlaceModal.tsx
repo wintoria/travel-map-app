@@ -71,6 +71,28 @@ export default function ViewPlaceModal() {
   // Do not render if the modal type does not match
   if (modalType !== "view-place") return null;
 
+  // Toggle the visited status directly from the view modal
+  const handleToggleVisited = async () => {
+    const newStatus = !place.visited;
+    
+    // Optimistic UI update (feels instant)
+    setPlace({ ...place, visited: newStatus });
+
+    // Update in database
+    const { error } = await supabase
+      .from("places")
+      .update({ visited: newStatus })
+      .eq("id", place.id);
+
+    if (!error) {
+      window.dispatchEvent(new Event("places-updated"));
+    } else {
+      // Revert if database fails
+      setPlace({ ...place, visited: !newStatus });
+      console.error("Failed to toggle visited status", error);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-[9999] bg-black/50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden flex flex-col max-h-[90vh]">
@@ -90,20 +112,22 @@ export default function ViewPlaceModal() {
           ) : place ? (
             <div className="space-y-4">
               
-              {/* Title, Address and Visited Badge */}
+              {/* Title, Address and Interactive Visited Badge */}
               <div>
                 <div className="flex items-start justify-between gap-2">
                   <h3 className="text-xl font-bold text-gray-900">{place.name}</h3>
-                  {/* Visited status badge */}
-                  {place.visited ? (
-                    <span className="bg-green-100 text-green-800 text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider shrink-0">
-                      Odwiedzone
-                    </span>
-                  ) : (
-                    <span className="bg-gray-100 text-gray-600 text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider shrink-0">
-                      Nieodwiedzone
-                    </span>
-                  )}
+                  
+                  {/* Interactive toggle button */}
+                  <button 
+                    onClick={handleToggleVisited}
+                    className={`text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider shrink-0 transition-colors cursor-pointer border ${
+                      place.visited 
+                        ? 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200' 
+                        : 'bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-200'
+                    }`}
+                  >
+                    {place.visited ? "Odwiedzone" : "Nieodwiedzone"}
+                  </button>
                 </div>
                 {place.address && <p className="text-sm text-gray-500 mt-1">{place.address}</p>}
               </div>
@@ -178,7 +202,14 @@ export default function ViewPlaceModal() {
                   </div>
                 ) : (
                   <div className="flex gap-3">
-                    <button className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-800 font-medium py-2.5 rounded-lg transition-colors text-sm cursor-pointer">
+                    <button 
+                      onClick={() => {
+                        const params = new URLSearchParams(window.location.search);
+                        params.set("modal", "edit-place");
+                        router.push(`?${params.toString()}`, { scroll: false });
+                      }}
+                      className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-800 font-medium py-2.5 rounded-lg transition-colors text-sm cursor-pointer"
+                    >
                       Edytuj
                     </button>
                     <button 

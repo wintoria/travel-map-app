@@ -10,30 +10,32 @@ export default function PlacesMarkers() {
 
   useEffect(() => {
     const fetchPlaces = async () => {
-      // Fetch places and force fresh data by appending a unique timestamp
+      // Fetch all places from the database
       const { data, error } = await supabase
         .from("places")
-        .select("*")
-        .neq("id", `cache-bust-${Date.now()}`);
+        .select("*");
 
-      if (!error && data) setPlaces(data);
+      if (error) {
+        console.error("Fetch places error:", error);
+      } else if (data) {
+        setPlaces(data);
+      }
     };
 
     fetchPlaces();
 
-    // Listen for custom event to refresh markers without page reload
+    // Listen for custom event to refresh markers instantly after save/delete
     window.addEventListener("places-updated", fetchPlaces);
     
-    // Cleanup listener
+    // Cleanup listener on unmount
     return () => window.removeEventListener("places-updated", fetchPlaces);
   }, []);
 
-  // Update URL to open the details modal for a specific place
+  // Open details modal and set placeId in URL
   const handleViewDetails = (placeId: string) => {
     const params = new URLSearchParams(window.location.search);
     params.set("modal", "view-place");
     params.set("placeId", placeId);
-    
     router.push(`?${params.toString()}`, { scroll: false });
   };
 
@@ -45,25 +47,29 @@ export default function PlacesMarkers() {
         <Marker key={place.id} position={[place.lat, place.lng]}>
           <Popup maxWidth={250}>
             <div className="text-center pb-1">
-              {/* Invisible button styled as a standard header */}
+              
+              {/* Clickable title (Button disguised as header) */}
               <button 
                 onClick={() => handleViewDetails(place.id)}
-                className="font-bold text-sm m-0 leading-tight mt-1 text-gray-900 hover:text-gray-500 transition-colors cursor-pointer w-full text-center"
+                className="font-bold text-sm m-0 leading-tight mt-1 text-gray-800 hover:text-gray-500 !no-underline transition-colors cursor-pointer w-full text-center border-none bg-transparent"
               >
                 {place.name}
               </button>
               
+              {/* Address display */}
               {place.address && (
                 <p className="text-[11px] text-gray-500 mt-1 mb-2">
                   {place.address}
                 </p>
               )}
               
+              {/* Styled note display */}
               {place.note && (
                 <p className="text-xs text-gray-700 mt-2 mb-2 italic border-l-2 border-blue-500 pl-2 text-left">
                   {place.note}
                 </p>
               )}
+              
             </div>
           </Popup>
         </Marker>
