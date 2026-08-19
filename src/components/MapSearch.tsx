@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useMap, Marker, Popup } from "react-leaflet";
 import { GeoSearchControl, OpenStreetMapProvider } from "leaflet-geosearch";
 import { useRouter } from "next/navigation";
@@ -9,6 +9,8 @@ export default function MapSearch() {
   // Access the Leaflet map instance
   const map = useMap();
   const router = useRouter();
+  // Ref to programmatically control the popup
+  const markerRef = useRef<any>(null);
   const [searchResult, setSearchResult] = useState<any>(null);
 
   useEffect(() => {
@@ -20,7 +22,7 @@ export default function MapSearch() {
     const searchControl = new GeoSearchControl({
       provider: provider,
       style: "bar",
-      showMarker: false, // We disable default marker to use our own clickable one
+      showMarker: false,
       showPopup: false,
       autoClose: true,
       retainZoomLevel: false,
@@ -31,7 +33,6 @@ export default function MapSearch() {
     // Add the control to the map
     map.addControl(searchControl);
 
-    // FIX: Remove annoying browser default tooltips (title) and autocomplete
     setTimeout(() => {
       const inputEl = document.querySelector('.leaflet-control-geosearch input');
       if (inputEl) {
@@ -42,38 +43,61 @@ export default function MapSearch() {
     }, 100);
 
     // Listen for the event when a user selects a place
-    map.on("geosearch/showlocation", (result: any) => {
-      setSearchResult(result.location);
-    });
+    const handleLocation = (result: any) => {
+      // Force coordinates to be numbers (Nominatim sometimes returns strings)
+      const safeLocation = {
+        ...result.location,
+        x: parseFloat(result.location.x),
+        y: parseFloat(result.location.y)
+      };
+      setSearchResult(safeLocation);
+    };
+
+    // Hide search pin if user clicks somewhere else on the map (prevent dual pins)
+    const handleMapClick = () => setSearchResult(null);
+
+    map.on("geosearch/showlocation", handleLocation);
+    map.on("click", handleMapClick);
 
     // Cleanup function to remove the control when component unmounts
     return () => {
       map.removeControl(searchControl);
-      map.off("geosearch/showlocation");
+      map.off("geosearch/showlocation", handleLocation);
+      map.off("click", handleMapClick);
     };
   }, [map]);
 
-  const handlePinClick = () => {
+  // Automatically open the popup when the search pin is placed
+  useEffect(() => {
+    if (searchResult && markerRef.current) {
+      setTimeout(() => {
+        if (markerRef.current) markerRef.current.openPopup();
+      }, 600);
+    }
+  }, [searchResult]);
+
+  const handlePinClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent map click from passing through
     if (!searchResult) return;
     
     const params = new URLSearchParams(window.location.search);
     params.set("modal", "add-place");
-    
-    // We pass data to URL, so the modal can read it later
     params.set("lat", searchResult.y);
     params.set("lng", searchResult.x);
+    
+    // Pass the name, the full address, and the flag to lock the name field
     params.set("name", searchResult.label.split(",")[0]); 
+    params.set("address", searchResult.label);
+    params.set("lockedName", "true"); 
     
     router.push(`?${params.toString()}`, { scroll: false });
   };
 
   if (!searchResult) return null;
 
-  // Split the label into parts, trimming extra spaces
   const parts = searchResult.label.split(",").map((p: string) => p.trim());
   const title = parts[0];
   
-  // Build subtitle: middle parts + the last part (Country)
   let subtitle = "";
   if (parts.length > 1) {
     const middle = parts.slice(1, 3).join(", ");
@@ -82,16 +106,16 @@ export default function MapSearch() {
   }
 
   return (
-    <Marker position={[searchResult.y, searchResult.x]}>
+    <Marker position={[searchResult.y, searchResult.x]} ref={markerRef}>
       <Popup maxWidth={220}>
         <div className="text-center">
-          <p className="font-bold text-sm m-0 leading-tight">{title}</p>
+          <p className="font-bold text-sm m-0 leading-tight mt-1">{title}</p>
           <p className="text-[11px] text-gray-500 mt-1 mb-2 truncate" title={subtitle}>
             {subtitle}
           </p>
           <button 
             onClick={handlePinClick}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium w-full transition-colors"
+            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium w-full transition-colors cursor-pointer relative z-10"
           >
             Zapisz to miejsce
           </button>

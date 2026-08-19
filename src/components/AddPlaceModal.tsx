@@ -9,13 +9,14 @@ export default function AddPlaceModal({ currentView }: { currentView: string }) 
   const searchParams = useSearchParams();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Extract data passed from the map search
+  // Extract data passed from the map search or click
   const defaultName = searchParams.get("name") || "";
+  const defaultAddress = searchParams.get("address") || "";
   const defaultLat = searchParams.get("lat") || "";
   const defaultLng = searchParams.get("lng") || "";
   
-  // Check if coordinates were provided by the map (to lock the inputs)
   const isFromMap = !!defaultLat && !!defaultLng;
+  const isNameLocked = searchParams.get("lockedName") === "true"; // Check if name should be locked
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault(); // Prevent default page reload
@@ -128,7 +129,8 @@ export default function AddPlaceModal({ currentView }: { currentView: string }) 
         </div>
         
         <div className="overflow-y-auto flex-1">
-          <form onSubmit={handleSubmit} className="space-y-4 flex flex-col p-6 pt-4">
+          {/* Form with browser autocomplete disabled */}
+          <form autoComplete="off" onSubmit={handleSubmit} className="space-y-4 flex flex-col p-6 pt-4">
             
             {/* Place Name Input */}
             <div>
@@ -138,7 +140,9 @@ export default function AddPlaceModal({ currentView }: { currentView: string }) 
                 name="name"
                 required
                 defaultValue={defaultName}
-                className="w-full border border-gray-300 rounded-lg p-2 text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                readOnly={isNameLocked}
+                autoComplete="off"
+                className={`w-full border border-gray-300 rounded-lg p-2 outline-none ${isNameLocked ? 'bg-gray-100 text-gray-500' : 'text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-transparent'}`}
                 placeholder="np. Bakkerij Wolf"
               />
             </div>
@@ -153,6 +157,7 @@ export default function AddPlaceModal({ currentView }: { currentView: string }) 
                   required
                   defaultValue={defaultLat}
                   readOnly={isFromMap}
+                  autoComplete="off"
                   className={`w-full border border-gray-300 rounded-lg p-2 outline-none ${isFromMap ? 'bg-gray-100 text-gray-500' : 'text-gray-800 focus:ring-2 focus:ring-blue-500'}`} 
                   placeholder="np. 53.428" 
                 />
@@ -165,6 +170,7 @@ export default function AddPlaceModal({ currentView }: { currentView: string }) 
                   required
                   defaultValue={defaultLng}
                   readOnly={isFromMap}
+                  autoComplete="off"
                   className={`w-full border border-gray-300 rounded-lg p-2 outline-none ${isFromMap ? 'bg-gray-100 text-gray-500' : 'text-gray-800 focus:ring-2 focus:ring-blue-500'}`} 
                   placeholder="np. 14.552" 
                 />
@@ -177,7 +183,10 @@ export default function AddPlaceModal({ currentView }: { currentView: string }) 
               <input 
                 type="text" 
                 name="address"
-                className="w-full border border-gray-300 rounded-lg p-2 text-gray-800 focus:ring-2 focus:ring-blue-500 outline-none"
+                defaultValue={defaultAddress}
+                readOnly={isFromMap}
+                autoComplete="off"
+                className={`w-full border border-gray-300 rounded-lg p-2 outline-none ${isFromMap ? 'bg-gray-100 text-gray-500' : 'text-gray-800 focus:ring-2 focus:ring-blue-500'}`}
                 placeholder="Wpisz adres"
               />
             </div>
@@ -188,6 +197,7 @@ export default function AddPlaceModal({ currentView }: { currentView: string }) 
               <input 
                 type="text" 
                 name="duration"
+                autoComplete="off"
                 className="w-full border border-gray-300 rounded-lg p-2 text-gray-800 focus:ring-2 focus:ring-blue-500 outline-none"
                 placeholder="np. 2-3h, 30 min"
               />
@@ -199,6 +209,7 @@ export default function AddPlaceModal({ currentView }: { currentView: string }) 
               <textarea 
                 name="note"
                 rows={3}
+                autoComplete="off"
                 className="w-full border border-gray-300 rounded-lg p-2 text-gray-800 focus:ring-2 focus:ring-blue-500 outline-none resize-none"
                 placeholder="Co warto wiedzieć o tym miejscu?"
               />
@@ -210,6 +221,7 @@ export default function AddPlaceModal({ currentView }: { currentView: string }) 
               <input 
                 type="url" 
                 name="googleMapsUrl"
+                autoComplete="off"
                 className="w-full border border-gray-300 rounded-lg p-2 text-gray-800 focus:ring-2 focus:ring-blue-500 outline-none"
                 placeholder="np. gotowy link z aplikacji"
               />
@@ -224,6 +236,7 @@ export default function AddPlaceModal({ currentView }: { currentView: string }) 
                 <input 
                   type="url" 
                   name="additionalInfoUrl"
+                  autoComplete="off"
                   className="w-full border border-gray-300 rounded-lg p-2 text-gray-800 focus:ring-2 focus:ring-blue-500 outline-none"
                   placeholder="Wklej link (np. rezerwacja, oficjalna strona)"
                 />
