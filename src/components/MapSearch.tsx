@@ -91,6 +91,7 @@ export default function MapSearch() {
     params.set("lockedName", "true"); 
     
     router.push(`?${params.toString()}`, { scroll: false });
+    setSearchResult(null); // Remove search pin after opening modal
   };
 
   if (!searchResult) return null;
@@ -113,12 +114,28 @@ export default function MapSearch() {
           <p className="text-[11px] text-gray-500 mt-1 mb-2 truncate" title={subtitle}>
             {subtitle}
           </p>
-          <button 
-            onClick={handlePinClick}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium w-full transition-colors cursor-pointer relative z-10"
-          >
-            Zapisz to miejsce
-          </button>
+          
+          {/* Action buttons wrapper */}
+          <div className="flex gap-2 mt-2 relative z-10">
+            {/* Cancel/Deselect button */}
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                setSearchResult(null); // Remove temporary pin
+              }}
+              className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg text-sm font-medium flex-1 transition-colors cursor-pointer"
+            >
+              Odznacz
+            </button>
+
+            {/* Save button */}
+            <button 
+              onClick={handlePinClick}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium flex-1 transition-colors cursor-pointer"
+            >
+              Zapisz
+            </button>
+          </div>
         </div>
       </Popup>
     </Marker>

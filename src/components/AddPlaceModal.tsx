@@ -101,9 +101,14 @@ export default function AddPlaceModal({ currentView }: { currentView: string }) 
 
       if (dbError) throw dbError;
 
-      // 4. Close the modal and refresh the page data
+      // Close the modal immediately so it feels fast
       router.push(`?view=${currentView}`, { scroll: false });
       router.refresh();
+
+      // Delay the refresh signal slightly so database and cache can sync
+      setTimeout(() => {
+        window.dispatchEvent(new Event("places-updated"));
+      }, 300);
 
     } catch (error) {
       console.error("Save error:", error);

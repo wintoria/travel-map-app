@@ -3,6 +3,7 @@ import Map from "@/components/Map";
 import PlaceList from "@/components/PlaceList";
 import Link from "next/link";
 import AddPlaceModal from "@/components/AddPlaceModal";
+import ViewPlaceModal from "@/components/ViewPlaceModal";
 
 export default async function Home({
   searchParams,
@@ -32,6 +33,8 @@ export default async function Home({
 
       {/* Form modal (renders only when showModal is true) */}
       {showModal && <AddPlaceModal currentView={view} />}
+      
+      <ViewPlaceModal />
     </main>
   );
 }
