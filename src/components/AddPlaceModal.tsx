@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import React from "react";
+import TagSelector from "./TagSelector";
 
 export default function AddPlaceModal({ currentView }: { currentView: string }) {
   const router = useRouter();
@@ -112,8 +113,11 @@ export default function AddPlaceModal({ currentView }: { currentView: string }) 
       // Read trip_id from the new dropdown
       const trip_id = formData.get("trip_id") as string;
 
+      // Read selected category IDs from the hidden input
+      const categoryIds = JSON.parse((formData.get("category_ids") as string) || "[]");
+
       // 3. Insert the new place into the database
-      const { error: dbError } = await supabase.from("places").insert({
+      const { data: newPlace, error: dbError } = await supabase.from("places").insert({
         trip_id, // Uses dynamic user selection
         name,
         lat,
@@ -125,9 +129,18 @@ export default function AddPlaceModal({ currentView }: { currentView: string }) 
         visited,
         additional_link: additionalInfo, 
         attached_file: attachedFileUrl
-      });
+      }).select().single();
 
       if (dbError) throw dbError;
+
+      // 4. Insert category relations if any tags were selected
+      if (categoryIds.length > 0 && newPlace) {
+        const relations = categoryIds.map((categoryId: string) => ({
+          place_id: newPlace.id,
+          category_id: categoryId
+        }));
+        await supabase.from("place_categories").insert(relations);
+      }
 
       // Close the modal immediately so it feels fast
       router.push(`?view=${currentView}`, { scroll: false });
@@ -259,6 +272,12 @@ export default function AddPlaceModal({ currentView }: { currentView: string }) 
                 className="w-full border border-gray-300 rounded-lg p-2 text-gray-800 focus:ring-2 focus:ring-blue-500 outline-none resize-none"
                 placeholder="Co warto wiedzieć o tym miejscu?"
               />
+            </div>
+
+            {/* Tag / Category Selector */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Tagi / Kategorie</label>
+              <TagSelector />
             </div>
 
             {/* Google Maps URL Input */}

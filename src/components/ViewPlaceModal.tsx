@@ -3,6 +3,24 @@ import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
+// Helper function to calculate text contrast for displaying tags
+const getContrastColor = (hexColor: string) => {
+  if (!hexColor) return '#000000';
+  let color = hexColor.trim().toLowerCase();
+  const namedColors: Record<string, string> = {
+    white: 'ffffff', black: '000000', red: 'ff0000', green: '008000', blue: '0000ff', 
+    yellow: 'ffff00', orange: 'ffa500', purple: '800080', gray: '808080', brown: 'a52a2a'
+  };
+  color = namedColors[color] || color.replace(/[^0-9a-f]/g, '');
+  if (color.length === 3) color = color.split('').map(c => c + c).join('');
+  if (color.length !== 6) return '#000000'; 
+  const r = parseInt(color.substring(0, 2), 16);
+  const g = parseInt(color.substring(2, 4), 16);
+  const b = parseInt(color.substring(4, 6), 16);
+  // Threshold set to 180 as requested
+  return ((r * 299 + g * 587 + b * 114) / 1000) > 180 ? '#000000' : '#ffffff';
+};
+
 export default function ViewPlaceModal() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -25,7 +43,12 @@ export default function ViewPlaceModal() {
       // Fetch single place data from Supabase
       const { data, error } = await supabase
         .from("places")
-        .select("*")
+        .select(`
+          *,
+          place_categories (
+            categories (*)
+          )
+        `)
         .eq("id", placeId)
         .single();
 
@@ -39,6 +62,15 @@ export default function ViewPlaceModal() {
             .single();
           data.trip = tripData;
         }
+        
+        // Flatten categories array for easy rendering
+        if (data.place_categories) {
+          data.tags = data.place_categories
+            .map((pc: any) => pc.categories)
+            .filter(Boolean)
+            .sort((a: any, b: any) => a.name.localeCompare(b.name));
+        }
+        
         setPlace(data);
       } else {
         console.error("Error fetching place details:", error);
@@ -144,6 +176,33 @@ export default function ViewPlaceModal() {
                   <div className="inline-flex items-center gap-1.5 px-2.5 py-1 mt-2 bg-blue-50 text-blue-700 text-xs font-bold rounded-md border border-blue-100">
                     <span>{place.trip.icon || "🔖"}</span>
                     <span>{place.trip.name}</span>
+                  </div>
+                )}
+
+                {/* Display Tags / Categories */}
+                {place.tags && place.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-3">
+                    {place.tags.map((tag: any) => {
+                      const rawColor = tag.color || '#ffffff';
+                      const isWhite = rawColor.toLowerCase().includes('ffffff') || rawColor.trim().toLowerCase() === 'white';
+                      const effectiveColor = isWhite ? '#e5e7eb' : rawColor; 
+                      
+                      return (
+                        <span 
+                          key={tag.id}
+                          title={tag.name}
+                          style={{ 
+                            backgroundColor: effectiveColor, 
+                            color: getContrastColor(effectiveColor),
+                            borderColor: effectiveColor
+                          }}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border shadow-sm"
+                        >
+                          <span>{tag.icon}</span>
+                          <span className="truncate max-w-[140px]">{tag.name}</span>
+                        </span>
+                      );
+                    })}
                   </div>
                 )}
 

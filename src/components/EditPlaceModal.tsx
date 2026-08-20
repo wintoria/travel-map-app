@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import TagSelector from "./TagSelector";
 
 export default function EditPlaceModal({ currentView }: { currentView: string }) {
   const router = useRouter();
@@ -13,6 +14,7 @@ export default function EditPlaceModal({ currentView }: { currentView: string })
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [place, setPlace] = useState<any>(null);
+  const [initialCategories, setInitialCategories] = useState<string[]>([]);
 
   // Store all available trips for the dropdown hierarchy
   const [trips, setTrips] = useState<any[]>([]);
@@ -22,12 +24,34 @@ export default function EditPlaceModal({ currentView }: { currentView: string })
     if (modalType !== "edit-place" || !placeId) return;
 
     const fetchData = async () => {
-      const { data: placeData, error: placeError } = await supabase.from("places").select("*").eq("id", placeId).single();
-      if (!placeError && placeData) setPlace(placeData);
+      // Force the loading screen to show every time the modal opens
+      setIsLoading(true); 
 
-      const { data: tripsData } = await supabase.from("trips").select("id, name, parent_id, icon").order("created_at", { ascending: true });
+      // Fetch place and its category relations in a single, optimized query
+      const { data: placeData, error: placeError } = await supabase
+        .from("places")
+        .select(`
+          *,
+          place_categories ( category_id )
+        `)
+        .eq("id", placeId)
+        .single();
+
+      if (!placeError && placeData) {
+        setPlace(placeData);
+        if (placeData.place_categories) {
+          setInitialCategories(placeData.place_categories.map((pc: any) => pc.category_id));
+        }
+      }
+
+      const { data: tripsData } = await supabase
+        .from("trips")
+        .select("id, name, parent_id, icon")
+        .order("created_at", { ascending: true });
+        
       if (tripsData) setTrips(tripsData);
 
+      // Hide loading screen only after new data is ready
       setIsLoading(false);
     };
     fetchData();
@@ -65,6 +89,8 @@ export default function EditPlaceModal({ currentView }: { currentView: string })
       const note = formData.get("note") as string;
       let googleMapsUrl = formData.get("googleMapsUrl") as string;
       const additionalInfo = formData.get("additionalInfoUrl") as string;
+      // Extract category IDs from the hidden input before updating
+      const categoryIds = JSON.parse((formData.get("category_ids") as string) || "[]");
 
       if (!googleMapsUrl && !isNaN(lat) && !isNaN(lng)) {
         googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
@@ -86,7 +112,7 @@ export default function EditPlaceModal({ currentView }: { currentView: string })
         attachedFileUrl = publicUrl;
       }
 
-      // Update the DB record
+      // Update the DB record for the place
       const { error: dbError } = await supabase.from("places").update({
         name, trip_id, lat, lng, address, duration, note,
         google_maps_url: googleMapsUrl,
@@ -95,6 +121,20 @@ export default function EditPlaceModal({ currentView }: { currentView: string })
       }).eq("id", placeId);
 
       if (dbError) throw dbError;
+
+      // Update category relationships (clear old, insert new)
+      await supabase.from("place_categories").delete().eq("place_id", placeId);
+      
+      if (categoryIds.length > 0) {
+        const relations = categoryIds.map((categoryId: string) => ({
+          place_id: placeId,
+          category_id: categoryId
+        }));
+        await supabase.from("place_categories").insert(relations);
+      }
+
+      // Force Next.js to purge client cache before navigating back
+      router.refresh();
 
       // Return to details modal and refresh map in the background
       handleBackToDetails();
@@ -184,6 +224,11 @@ export default function EditPlaceModal({ currentView }: { currentView: string })
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Notatka</label>
                 <textarea name="note" rows={3} defaultValue={place?.note} className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-blue-500 text-gray-800 resize-none" />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Tagi / Kategorie</label>
+                <TagSelector initialSelected={initialCategories} />
               </div>
 
               <div>
