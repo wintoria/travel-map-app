@@ -21,7 +21,9 @@ export default function PlaceList() {
   // Fetch places and apply Sidebar filters (same logic as PlacesMarkers)
   const fetchPlaces = async (event?: Event) => {
     const customEventData = (event as CustomEvent)?.detail;
-    const tripsParam = customEventData ? customEventData.trips : new URLSearchParams(window.location.search).get("trips");
+    const tripsParam = customEventData?.trips ?? new URLSearchParams(window.location.search).get("trips");
+    // Get search query from event or URL
+    const searchParam = customEventData?.query ?? new URLSearchParams(window.location.search).get("q");
     const isExplicitlyEmpty = customEventData ? customEventData.isEmpty : tripsParam === "none";
 
     // Stop if everything is unchecked in the Sidebar
@@ -31,6 +33,11 @@ export default function PlaceList() {
     }
 
     let query = supabase.from("places").select("*").order("created_at", { ascending: false });
+
+    // Apply text search filter across multiple columns
+    if (searchParam) {
+      query = query.or(`name.ilike.%${searchParam}%,address.ilike.%${searchParam}%,note.ilike.%${searchParam}%`);
+    }
 
     // Apply URL filters
     if (tripsParam && tripsParam !== "none") {
@@ -56,10 +63,12 @@ export default function PlaceList() {
 
     // Listen to changes from Sidebar and Modals
     window.addEventListener("places-updated", fetchPlaces);
+    window.addEventListener("search-changed", fetchPlaces as EventListener);
     window.addEventListener("filters-changed", fetchPlaces);
     
     return () => {
       window.removeEventListener("places-updated", fetchPlaces);
+      window.removeEventListener("search-changed", fetchPlaces as EventListener);
       window.removeEventListener("filters-changed", fetchPlaces);
     };
   }, []);

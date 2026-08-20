@@ -28,9 +28,10 @@ export default function PlacesMarkers() {
   useEffect(() => {
     // We now accept optional CustomEvent detail object to bypass slow Next.js router URL updates
     const fetchPlaces = async (event?: Event) => {
-      
       const customEventData = (event as CustomEvent)?.detail;
-      const tripsParam = customEventData ? customEventData.trips : new URLSearchParams(window.location.search).get("trips");
+      const tripsParam = customEventData?.trips ?? new URLSearchParams(window.location.search).get("trips");
+      // Get search query from event or URL
+      const searchParam = customEventData?.query ?? new URLSearchParams(window.location.search).get("q");
       const isExplicitlyEmpty = customEventData ? customEventData.isEmpty : tripsParam === "none";
 
       // Stop fetching and clear map only if explicitly unchecked
@@ -39,7 +40,12 @@ export default function PlacesMarkers() {
         return;
       }
 
-      let query = supabase.from("places").select("*");
+      let query = supabase.from("places").select("*").order("created_at", { ascending: false });
+
+      // Apply text search filter across multiple columns
+      if (searchParam) {
+        query = query.or(`name.ilike.%${searchParam}%,address.ilike.%${searchParam}%,note.ilike.%${searchParam}%`);
+      }
 
       // Filter only if specific folders are checked (meaning URL parameter exists and is not "none")
       if (tripsParam && tripsParam !== "none") {
@@ -76,11 +82,13 @@ export default function PlacesMarkers() {
 
     // Listen for custom events to refresh markers instantly
     window.addEventListener("places-updated", handlePlacesUpdated);
+    window.addEventListener("search-changed", fetchPlaces as EventListener);
     window.addEventListener("filters-changed", handleFiltersChanged);
     
     // Cleanup listeners on unmount
     return () => {
       window.removeEventListener("places-updated", handlePlacesUpdated);
+      window.removeEventListener("search-changed", fetchPlaces as EventListener);
       window.removeEventListener("filters-changed", handleFiltersChanged);
     };
   }, []);
