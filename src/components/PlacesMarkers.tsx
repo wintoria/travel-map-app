@@ -4,16 +4,59 @@ import { Marker, Popup } from "react-leaflet";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 
+// Format long addresses into shorter format (Street, City, Country)
+const formatAddress = (address: string) => {
+  if (!address) return "";
+  const parts = address.split(",").map(p => p.trim());
+  if (parts.length <= 3) return address;
+
+  // Filter out postal codes (e.g., 70-527) and regions (e.g., województwo)
+  const filtered = parts.filter(p => !p.match(/\d{2}-\d{3}/) && !p.toLowerCase().includes("województwo"));
+
+  if (filtered.length >= 3) {
+    // Return first part (Street), second to last (City), and last (Country)
+    return `${filtered[0]}, ${filtered[filtered.length - 2]}, ${filtered[filtered.length - 1]}`;
+  }
+
+  return filtered.join(", ");
+};
+
 export default function PlacesMarkers() {
   const [places, setPlaces] = useState<any[]>([]);
   const router = useRouter();
 
   useEffect(() => {
-    const fetchPlaces = async () => {
-      // Fetch all places from the database
-      const { data, error } = await supabase
-        .from("places")
-        .select("*");
+    // We now accept optional CustomEvent detail object to bypass slow Next.js router URL updates
+    const fetchPlaces = async (event?: Event) => {
+      
+      const customEventData = (event as CustomEvent)?.detail;
+      let tripsParam = customEventData ? customEventData.trips : new URLSearchParams(window.location.search).get("trips");
+      const isExplicitlyEmpty = customEventData ? customEventData.isEmpty : tripsParam === "none";
+
+      // Stop fetching and clear map if completely unchecked or no param exists
+      if (isExplicitlyEmpty || !tripsParam) {
+        setPlaces([]);
+        return;
+      }
+
+      // Find trip IDs based on names
+      let tripIds: string[] = [];
+      const tripNames = tripsParam.split(",");
+      const { data: tripsData } = await supabase.from("trips").select("id, name");
+      
+      if (tripsData) {
+        tripIds = tripsData.filter(t => tripNames.includes(t.name)).map(t => t.id);
+      }
+
+      // Stop fetching if no matching trips were found to prevent fetching all places
+      if (tripIds.length === 0) {
+        setPlaces([]);
+        return;
+      }
+
+      // Build and execute the places query with matched IDs
+      const query = supabase.from("places").select("*").in("trip_id", tripIds);
+      const { data, error } = await query;
 
       if (error) {
         console.error("Fetch places error:", error);
@@ -22,13 +65,22 @@ export default function PlacesMarkers() {
       }
     };
 
+    // Initial fetch on mount
     fetchPlaces();
 
-    // Listen for custom event to refresh markers instantly after save/delete
-    window.addEventListener("places-updated", fetchPlaces);
+    // Wrapper functions to ensure correct signature for addEventListener
+    const handleFiltersChanged = (e: Event) => fetchPlaces(e);
+    const handlePlacesUpdated = () => fetchPlaces();
+
+    // Listen for custom events to refresh markers instantly
+    window.addEventListener("places-updated", handlePlacesUpdated);
+    window.addEventListener("filters-changed", handleFiltersChanged);
     
-    // Cleanup listener on unmount
-    return () => window.removeEventListener("places-updated", fetchPlaces);
+    // Cleanup listeners on unmount
+    return () => {
+      window.removeEventListener("places-updated", handlePlacesUpdated);
+      window.removeEventListener("filters-changed", handleFiltersChanged);
+    };
   }, []);
 
   // Open details modal and set placeId in URL
@@ -45,21 +97,26 @@ export default function PlacesMarkers() {
     <>
       {places.map((place) => (
         <Marker key={place.id} position={[place.lat, place.lng]}>
-          <Popup maxWidth={250}>
+          {/* minWidth ensures the 'X' close button doesn't overlap short titles */}
+          <Popup minWidth={150} maxWidth={250}>
             <div className="text-center pb-1">
               
               {/* Clickable title (Button disguised as header) */}
               <button 
-                onClick={() => handleViewDetails(place.id)}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleViewDetails(place.id);
+                }}
                 className="font-bold text-sm m-0 leading-tight mt-1 text-gray-800 hover:text-gray-500 !no-underline transition-colors cursor-pointer w-full text-center border-none bg-transparent"
               >
                 {place.name}
               </button>
               
-              {/* Address display */}
+              {/* Address display (Passed through formatter) */}
               {place.address && (
                 <p className="text-[11px] text-gray-500 mt-1 mb-2">
-                  {place.address}
+                  {formatAddress(place.address)}
                 </p>
               )}
               

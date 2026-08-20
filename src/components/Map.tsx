@@ -18,10 +18,10 @@ const MapWidget = dynamic(() => import("@/components/MapWidget"), {
   ),
 });
 
-export default function Map({ places }: { places: Place[] }) {
+export default function Map() {
   return (
     <div className="flex-1 bg-gray-100 rounded-lg shadow-inner overflow-hidden relative">
-      <MapWidget places={places} />
+      <MapWidget />
     </div>
   );
 }

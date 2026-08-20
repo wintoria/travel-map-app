@@ -1,13 +1,27 @@
 "use client";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import React from "react";
 
 export default function AddPlaceModal({ currentView }: { currentView: string }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [trips, setTrips] = useState<any[]>([]);
+
+  // Fetch available trips for the dropdown
+  useEffect(() => {
+    supabase.from("trips").select("id, name, icon, parent_id").then(({ data }) => {
+      if (data) setTrips(data);
+    });
+  }, []);
+
+  // Separate root folders from child folders for hierarchy display
+  const rootTrips = trips.filter((t) => !t.parent_id);
+  const getChildren = (parentId: string) => trips.filter((t) => t.parent_id === parentId);
 
   // Extract data passed from the map search or click
   const defaultName = searchParams.get("name") || "";
@@ -84,9 +98,12 @@ export default function AddPlaceModal({ currentView }: { currentView: string }) 
         attachedFileUrl = publicUrl;
       }
 
+      // Read trip_id from the new dropdown
+      const trip_id = formData.get("trip_id") as string;
+
       // 3. Insert the new place into the database
       const { error: dbError } = await supabase.from("places").insert({
-        trip_id: "11111111-1111-1111-1111-111111111111", // TODO: Replace with selected trip
+        trip_id, // Uses dynamic user selection
         name,
         lat,
         lng,
@@ -150,6 +167,33 @@ export default function AddPlaceModal({ currentView }: { currentView: string }) 
                 className={`w-full border border-gray-300 rounded-lg p-2 outline-none ${isNameLocked ? 'bg-gray-100 text-gray-500' : 'text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-transparent'}`}
                 placeholder="np. Bakkerij Wolf"
               />
+            </div>
+
+            {/* Trip / Folder Selection */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Zakładka *</label>
+              <select 
+                name="trip_id" 
+                required 
+                className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-blue-500 text-gray-800 bg-white"
+              >
+                <option value="">-- Wybierz zakładkę --</option>
+                {rootTrips.map(root => (
+                  <React.Fragment key={root.id}>
+                    {/* Render parent folder */}
+                    <option value={root.id} className="font-bold">
+                      {root.icon ? `${root.icon} ` : ""}{root.name}
+                    </option>
+                    
+                    {/* Render child folders with indentation */}
+                    {getChildren(root.id).map(child => (
+                      <option key={child.id} value={child.id}>
+                        {"\u00A0\u00A0\u00A0"}└─ {child.icon ? `${child.icon} ` : ""}{child.name}
+                      </option>
+                    ))}
+                  </React.Fragment>
+                ))}
+              </select>
             </div>
 
             {/* Coordinates (Lat & Lng) Inputs */}

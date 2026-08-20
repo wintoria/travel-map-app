@@ -21,7 +21,7 @@ type Place = {
   note: string;
 };
 
-export default function MapWidget({ places }: { places: Place[] }) {
+export default function MapWidget() {
   // Coordinates for Szczecin
   const position: [number, number] = [53.4285, 14.5528];
 
@@ -40,15 +40,6 @@ export default function MapWidget({ places }: { places: Place[] }) {
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
-      {/* Render database pins */}
-      {places.map((place) => (
-        <Marker key={place.id} position={[place.lat, place.lng]}>
-          <Popup>
-            <strong>{place.name}</strong> <br />
-            {place.note}
-          </Popup>
-        </Marker>
-      ))}
     </MapContainer>
   );
 }

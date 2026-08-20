@@ -5,23 +5,20 @@ import Link from "next/link";
 import AddPlaceModal from "@/components/AddPlaceModal";
 import ViewPlaceModal from "@/components/ViewPlaceModal";
 import EditPlaceModal from "@/components/EditPlaceModal";
+import SidebarWrapper from "@/components/SidebarWrapper";
 
 export default async function Home({
   searchParams,
 }: {
-  searchParams: Promise<{ view?: string; modal?: string }>;
+  searchParams: Promise<{ view?: string; modal?: string; trips?: string }>;
 }) {
   const params = await searchParams;
   const view = params.view || "map";
-  
-  // Check if "?modal=add-place" is in the URL
   const showModal = params.modal === "add-place";
-
-  const { data: places } = await supabase.from("places").select("*");
-
+  
   return (
     <main className="flex-1 flex flex-col p-4 relative">
-      {view === "map" ? <Map places={places || []} /> : <PlaceList />}
+      {view === "map" ? <Map /> : <PlaceList />}
 
       {/* Floating "Add" button */}
       <Link
@@ -37,7 +34,10 @@ export default async function Home({
 
       <ViewPlaceModal />
 
-      <EditPlaceModal currentView="{currentView}"/>
+      <EditPlaceModal currentView={view} />
+
+      {/* Sidebar wrapper handles button and state internally */}
+      <SidebarWrapper />
     </main>
   );
 }
