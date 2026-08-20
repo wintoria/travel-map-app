@@ -124,7 +124,25 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                 <span className={level === 0 ? "text-lg leading-none" : "text-base leading-none"}>
                   {child.icon || (level === 0 ? "🗂️" : "🔖")}
                 </span>
-                <span className={level === 0 ? "font-bold text-gray-800" : "text-sm text-gray-700"}>{child.name}</span>
+                
+                {/* Push the gear icon to the right */}
+                <span className={`flex-1 truncate ${level === 0 ? "font-bold text-gray-800" : "text-sm text-gray-700"}`}>
+                  {child.name}
+                </span>
+
+                {/* Edit bookmark button */}
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const params = new URLSearchParams(window.location.search);
+                    params.set("modal", "edit-trip");
+                    params.set("tripId", child.id);
+                    router.push(`?${params.toString()}`, { scroll: false });
+                  }}
+                  className="text-gray-400 hover:text-gray-700 transition-colors text-sm px-1 cursor-pointer"
+                >
+                  ⚙️
+                </button>
               </div>
               {/* Render grandchildren recursively */}
               {renderTree(child.id, level + 1)}

@@ -7,6 +7,7 @@ import ViewPlaceModal from "@/components/ViewPlaceModal";
 import EditPlaceModal from "@/components/EditPlaceModal";
 import SidebarWrapper from "@/components/SidebarWrapper";
 import AddTripModal from "@/components/AddTripModal";
+import EditTripModal from "@/components/EditTripModal";
 
 export default async function Home({
   searchParams,
@@ -41,6 +42,8 @@ export default async function Home({
       <SidebarWrapper />
 
       <AddTripModal />
+
+      <EditTripModal />
     </main>
   );
 }
