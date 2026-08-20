@@ -19,7 +19,7 @@ export default async function Home({
   const showModal = params.modal === "add-place";
   
   return (
-    <main className="flex-1 flex flex-col p-4 relative">
+    <main className="flex-1 flex flex-col p-4 relative overflow-hidden">
       {view === "map" ? <Map /> : <PlaceList />}
 
       {/* Floating "Add" button */}

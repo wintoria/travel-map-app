@@ -155,17 +155,17 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
   return (
     <>
-      {/* Overlay constrained to the main container */}
+      {/* Overlay strictly bound to top and bottom of relative parent */}
       {isOpen && (
         <div 
-          className="absolute inset-0 bg-black/20 z-[40]"
-          onClick={onClose}
+          className="absolute top-0 bottom-0 left-0 right-0 bg-black/20 z-[40]" 
+          onClick={onClose} 
         />
       )}
 
-      {/* Sidebar constrained to the main container */}
+      {/* Sidebar strictly bound to top and bottom */}
       <div 
-        className={`absolute top-0 left-0 h-full w-80 bg-white shadow-2xl z-[50] transform transition-transform duration-300 flex flex-col ${
+        className={`absolute top-0 bottom-0 left-0 w-80 bg-white shadow-2xl z-[50] transform transition-transform duration-300 flex flex-col ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
