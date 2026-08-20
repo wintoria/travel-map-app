@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
@@ -14,17 +14,24 @@ export default function EditPlaceModal({ currentView }: { currentView: string })
   const [isLoading, setIsLoading] = useState(true);
   const [place, setPlace] = useState<any>(null);
 
+  // Store all available trips for the dropdown hierarchy
+  const [trips, setTrips] = useState<any[]>([]);
+
   // Fetch existing data to populate the form
   useEffect(() => {
     if (modalType !== "edit-place" || !placeId) return;
 
-    const fetchPlace = async () => {
-      const { data, error } = await supabase.from("places").select("*").eq("id", placeId).single();
-      if (!error && data) setPlace(data);
+    const fetchData = async () => {
+      const { data: placeData, error: placeError } = await supabase.from("places").select("*").eq("id", placeId).single();
+      if (!placeError && placeData) setPlace(placeData);
+
+      const { data: tripsData } = await supabase.from("trips").select("id, name, parent_id, icon").order("created_at", { ascending: true });
+      if (tripsData) setTrips(tripsData);
+
       setIsLoading(false);
     };
+    fetchData();
 
-    fetchPlace();
   }, [modalType, placeId]);
 
   // Close completely to map view by clearing modal parameters
@@ -50,6 +57,7 @@ export default function EditPlaceModal({ currentView }: { currentView: string })
       const formData = new FormData(e.currentTarget);
       
       const name = formData.get("name") as string;
+      const trip_id = formData.get("trip_id") as string;
       const lat = parseFloat(formData.get("lat") as string);
       const lng = parseFloat(formData.get("lng") as string);
       const address = formData.get("address") as string;
@@ -80,7 +88,7 @@ export default function EditPlaceModal({ currentView }: { currentView: string })
 
       // Update the DB record
       const { error: dbError } = await supabase.from("places").update({
-        name, lat, lng, address, duration, note,
+        name, trip_id, lat, lng, address, duration, note,
         google_maps_url: googleMapsUrl,
         additional_link: additionalInfo, 
         attached_file: attachedFileUrl
@@ -101,6 +109,20 @@ export default function EditPlaceModal({ currentView }: { currentView: string })
   };
 
   if (modalType !== "edit-place") return null;
+
+  const renderOptions = (parentId: string | null = null, level: number = 0) => {
+    const children = trips.filter((t) => (t.parent_id || null) === (parentId || null));
+    return children.map((child) => (
+      <React.Fragment key={child.id}>
+        <option value={child.id} className={level === 0 ? "font-bold" : ""}>
+          {"\u00A0\u00A0\u00A0".repeat(level)}
+          {level > 0 ? "└ " : ""}
+          {child.icon ? `${child.icon} ` : ""}{child.name}
+        </option>
+        {renderOptions(child.id, level + 1)}
+      </React.Fragment>
+    ));
+  };
 
   return (
     <div className="fixed inset-0 bg-black/50 z-[60] flex items-end sm:items-center justify-center sm:p-4">
@@ -123,6 +145,19 @@ export default function EditPlaceModal({ currentView }: { currentView: string })
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Nazwa miejsca *</label>
                 <input type="text" name="name" required defaultValue={place?.name} className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-blue-500 text-gray-800" />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Zakładka *</label>
+                <select 
+                  name="trip_id" 
+                  required 
+                  defaultValue={place?.trip_id}
+                  className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-blue-500 text-gray-800 bg-white"
+                >
+                  <option value="">-- Wybierz zakładkę --</option>
+                  {renderOptions(null, 0)}
+                </select>
               </div>
 
               <div className="flex gap-4">

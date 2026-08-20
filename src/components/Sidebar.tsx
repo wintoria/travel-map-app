@@ -70,46 +70,69 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     };
 
     fetchTrips();
+
+    // Listen for custom event to refresh trips list when a new one is added
+    window.addEventListener("trips-updated", fetchTrips);
+    return () => window.removeEventListener("trips-updated", fetchTrips);
   }, []);
 
-  // Separate root folders from child folders
-  const rootTrips = trips.filter((t) => !t.parent_id);
-  const getChildren = (parentId: string) => trips.filter((t) => t.parent_id === parentId);
+  // Recursive function to get all descendants of a specific trip
+  const getAllDescendants = (parentId: string, allTrips: any[]): string[] => {
+    const children = allTrips.filter(t => t.parent_id === parentId);
+    let ids = children.map(c => c.id);
+    children.forEach(c => {
+      ids = [...ids, ...getAllDescendants(c.id, allTrips)];
+    });
+    return ids;
+  };
 
-  // Handle clicking a parent folder (selects/deselects all children)
-  const handleParentToggle = (parentId: string, childIds: string[]) => {
+  // Generic toggle handler for infinite levels
+  const handleToggle = (tripId: string) => {
     const newSet = new Set(selectedIds);
-    if (newSet.has(parentId)) {
-      // Uncheck parent and all children
-      newSet.delete(parentId);
-      childIds.forEach(id => newSet.delete(id));
+    const descendants = getAllDescendants(tripId, trips);
+
+    if (newSet.has(tripId)) {
+      newSet.delete(tripId);
+      descendants.forEach(id => newSet.delete(id));
     } else {
-      // Check parent and all children
-      newSet.add(parentId);
-      childIds.forEach(id => newSet.add(id));
+      newSet.add(tripId);
+      descendants.forEach(id => newSet.add(id));
     }
+
     setSelectedIds(newSet);
     updateUrlFilters(newSet, trips);
   };
 
-  // Handle clicking a child folder (Cascading logic)
-  const handleChildToggle = (childId: string, parentId: string, childIds: string[]) => {
-    const newSet = new Set(selectedIds);
-    if (newSet.has(childId)) {
-      // Uncheck child and parent
-      newSet.delete(childId);
-      newSet.delete(parentId);
-    } else {
-      // Check child
-      newSet.add(childId);
-      // Check if all children are now checked - if so, check the parent
-      const allChecked = childIds.every(id => newSet.has(id));
-      if (allChecked) {
-        newSet.add(parentId);
-      }
-    }
-    setSelectedIds(newSet);
-    updateUrlFilters(newSet, trips);
+  // Recursive function to render the UI tree
+  const renderTree = (parentId: string | null = null, level: number = 0) => {
+    const children = trips.filter(t => (t.parent_id || null) === (parentId || null));
+    if (children.length === 0) return null;
+
+    return (
+      <div className={level === 0 ? "space-y-4" : "ml-7 space-y-2 border-l-2 border-gray-100 pl-3 pt-1 mt-2"}>
+        {children.map(child => {
+          const isChecked = selectedIds.has(child.id);
+          return (
+            <div key={child.id} className={level === 0 ? "border border-gray-100 rounded-xl p-3 shadow-sm bg-white" : ""}>
+              <div className={`flex items-center gap-3 ${level === 0 ? "mb-2" : ""}`}>
+                <input 
+                  type="checkbox" 
+                  checked={isChecked}
+                  onChange={() => handleToggle(child.id)}
+                  className="w-4 h-4 text-blue-600 rounded border-gray-300 cursor-pointer" 
+                />
+                <span className={level === 0 ? "text-lg leading-none" : "text-base leading-none"}>
+                  {child.icon || (level === 0 ? "🗂️" : "🔖")}
+                </span>
+                <span className={level === 0 ? "font-bold text-gray-800" : "text-sm text-gray-700"}>{child.name}</span>
+              </div>
+              {/* Render grandchildren recursively */}
+              {renderTree(child.id, level + 1)}
+            </div>
+          );
+        })}
+      </div>
+    );
   };
 
   return (
@@ -140,58 +163,23 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         <div className="flex-1 overflow-y-auto p-4">
           {isLoading ? (
             <p className="text-sm text-gray-500 text-center mt-4">Ładowanie...</p>
-          ) : rootTrips.length === 0 ? (
-            <p className="text-sm text-gray-500 text-center mt-4">Brak wyjazdów.</p>
+          ) : trips.length === 0 ? (
+            <p className="text-sm text-gray-500 text-center mt-4">Brak zakładek.</p>
           ) : (
-            <div className="space-y-4">
-              {rootTrips.map((root) => {
-                const children = getChildren(root.id);
-                const childIds = children.map(c => c.id);
-                const isParentChecked = selectedIds.has(root.id);
-
-                return (
-                  <div key={root.id} className="border border-gray-100 rounded-xl p-3 shadow-sm bg-white">
-                    
-                    {/* Parent Folder */}
-                    <div className="flex items-center gap-3 mb-2">
-                      <input 
-                        type="checkbox" 
-                        checked={isParentChecked}
-                        onChange={() => handleParentToggle(root.id, childIds)}
-                        className="w-4 h-4 text-blue-600 rounded border-gray-300 cursor-pointer" 
-                      />
-                      <span className="text-lg leading-none">{root.icon || "📁"}</span>
-                      <span className="font-bold text-gray-800">{root.name}</span>
-                    </div>
-                    
-                    {/* Child Folders */}
-                    {children.length > 0 && (
-                      <div className="ml-7 space-y-2 border-l-2 border-gray-100 pl-3 pt-1">
-                        {children.map((child) => (
-                          <div key={child.id} className="flex items-center gap-3">
-                            <input 
-                              type="checkbox" 
-                              checked={selectedIds.has(child.id)}
-                              onChange={() => handleChildToggle(child.id, root.id, childIds)}
-                              className="w-4 h-4 text-blue-600 rounded border-gray-300 cursor-pointer" 
-                            />
-                            <span className="text-base leading-none">{child.icon || "📍"}</span>
-                            <span className="text-sm text-gray-700">{child.name}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    
-                  </div>
-                );
-              })}
-            </div>
+            renderTree(null, 0)
           )}
         </div>
         
         {/* Action buttons */}
         <div className="p-4 border-t border-gray-100 bg-gray-50">
-          <button className="w-full py-2.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-sm font-bold rounded-lg transition-colors cursor-pointer shadow-sm">
+          <button 
+            onClick={() => {
+              const params = new URLSearchParams(window.location.search);
+              params.set("modal", "add-trip");
+              router.push(`?${params.toString()}`, { scroll: false });
+            }}
+            className="w-full py-2.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-sm font-bold rounded-lg transition-colors cursor-pointer shadow-sm"
+          >
             + Nowy folder
           </button>
         </div>

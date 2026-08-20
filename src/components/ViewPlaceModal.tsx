@@ -29,10 +29,19 @@ export default function ViewPlaceModal() {
         .eq("id", placeId)
         .single();
 
-      if (error) {
-        console.error("Error fetching place details:", error);
-      } else {
+      if (!error && data) {
+        // Fetch trip (bookmark) info if place belongs to one
+        if (data.trip_id) {
+          const { data: tripData } = await supabase
+            .from("trips")
+            .select("name, icon")
+            .eq("id", data.trip_id)
+            .single();
+          data.trip = tripData;
+        }
         setPlace(data);
+      } else {
+        console.error("Error fetching place details:", error);
       }
       
       setIsLoading(false);
@@ -129,7 +138,16 @@ export default function ViewPlaceModal() {
                     {place.visited ? "Odwiedzone" : "Nieodwiedzone"}
                   </button>
                 </div>
-                {place.address && <p className="text-sm text-gray-500 mt-1">{place.address}</p>}
+
+                {/* Bookmark Badge */}
+                {place.trip && (
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 mt-2 bg-blue-50 text-blue-700 text-xs font-bold rounded-md border border-blue-100">
+                    <span>{place.trip.icon || "🔖"}</span>
+                    <span>{place.trip.name}</span>
+                  </div>
+                )}
+
+                {place.address && <p className="text-sm text-gray-500 mt-2">{place.address}</p>}
               </div>
 
               {/* Coordinates */}

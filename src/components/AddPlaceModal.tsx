@@ -19,9 +19,20 @@ export default function AddPlaceModal({ currentView }: { currentView: string }) 
     });
   }, []);
 
-  // Separate root folders from child folders for hierarchy display
-  const rootTrips = trips.filter((t) => !t.parent_id);
-  const getChildren = (parentId: string) => trips.filter((t) => t.parent_id === parentId);
+  // Recursive function to build infinite dropdown nesting
+  const renderOptions = (parentId: string | null = null, level: number = 0) => {
+    const children = trips.filter((t) => (t.parent_id || null) === (parentId || null));
+    return children.map((child) => (
+      <React.Fragment key={child.id}>
+        <option value={child.id} className={level === 0 ? "font-bold" : ""}>
+          {"\u00A0\u00A0\u00A0".repeat(level)}
+          {level > 0 ? "└ " : ""}
+          {child.icon ? `${child.icon} ` : ""}{child.name}
+        </option>
+        {renderOptions(child.id, level + 1)}
+      </React.Fragment>
+    ));
+  };
 
   // Extract data passed from the map search or click
   const defaultName = searchParams.get("name") || "";
@@ -178,21 +189,7 @@ export default function AddPlaceModal({ currentView }: { currentView: string }) 
                 className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-blue-500 text-gray-800 bg-white"
               >
                 <option value="">-- Wybierz zakładkę --</option>
-                {rootTrips.map(root => (
-                  <React.Fragment key={root.id}>
-                    {/* Render parent folder */}
-                    <option value={root.id} className="font-bold">
-                      {root.icon ? `${root.icon} ` : ""}{root.name}
-                    </option>
-                    
-                    {/* Render child folders with indentation */}
-                    {getChildren(root.id).map(child => (
-                      <option key={child.id} value={child.id}>
-                        {"\u00A0\u00A0\u00A0"}└─ {child.icon ? `${child.icon} ` : ""}{child.name}
-                      </option>
-                    ))}
-                  </React.Fragment>
-                ))}
+                {renderOptions(null, 0)}
               </select>
             </div>
 

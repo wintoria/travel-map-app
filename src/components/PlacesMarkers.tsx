@@ -30,32 +30,34 @@ export default function PlacesMarkers() {
     const fetchPlaces = async (event?: Event) => {
       
       const customEventData = (event as CustomEvent)?.detail;
-      let tripsParam = customEventData ? customEventData.trips : new URLSearchParams(window.location.search).get("trips");
+      const tripsParam = customEventData ? customEventData.trips : new URLSearchParams(window.location.search).get("trips");
       const isExplicitlyEmpty = customEventData ? customEventData.isEmpty : tripsParam === "none";
 
-      // Stop fetching and clear map if completely unchecked or no param exists
-      if (isExplicitlyEmpty || !tripsParam) {
+      // Stop fetching and clear map only if explicitly unchecked
+      if (isExplicitlyEmpty) {
         setPlaces([]);
         return;
       }
 
-      // Find trip IDs based on names
-      let tripIds: string[] = [];
-      const tripNames = tripsParam.split(",");
-      const { data: tripsData } = await supabase.from("trips").select("id, name");
-      
-      if (tripsData) {
-        tripIds = tripsData.filter(t => tripNames.includes(t.name)).map(t => t.id);
-      }
+      let query = supabase.from("places").select("*");
 
-      // Stop fetching if no matching trips were found to prevent fetching all places
-      if (tripIds.length === 0) {
-        setPlaces([]);
-        return;
+      // Filter only if specific folders are checked (meaning URL parameter exists and is not "none")
+      if (tripsParam && tripsParam !== "none") {
+        const tripNames = tripsParam.split(",");
+        const { data: tripsData } = await supabase.from("trips").select("id, name");
+        
+        if (tripsData) {
+          const tripIds = tripsData.filter(t => tripNames.includes(t.name)).map(t => t.id);
+          
+          if (tripIds.length === 0) {
+            setPlaces([]);
+            return;
+          }
+          query = query.in("trip_id", tripIds);
+        }
       }
+      // If no tripsParam exists, the query defaults to select("*"), matching the initial Sidebar state
 
-      // Build and execute the places query with matched IDs
-      const query = supabase.from("places").select("*").in("trip_id", tripIds);
       const { data, error } = await query;
 
       if (error) {
