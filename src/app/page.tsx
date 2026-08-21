@@ -8,6 +8,7 @@ import EditPlaceModal from "@/components/EditPlaceModal";
 import SidebarWrapper from "@/components/SidebarWrapper";
 import AddTripModal from "@/components/AddTripModal";
 import EditTripModal from "@/components/EditTripModal";
+import ManageTagsModal from "@/components/ManageTagsModal";
 
 export default async function Home({
   searchParams,
@@ -44,6 +45,9 @@ export default async function Home({
       <AddTripModal />
 
       <EditTripModal />
+
+      {/* Render ManageTagsModal when URL param matches */}
+      {params.modal === "manage-tags" && <ManageTagsModal />}
     </main>
   );
 }
