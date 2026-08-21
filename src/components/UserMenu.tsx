@@ -8,14 +8,14 @@ export default function UserMenu() {
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Pobranie danych zalogowanego użytkownika
+    // Fetch logged-in user data
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user?.email) {
         setEmail(session.user.email);
       }
     });
 
-    // Zamykanie menu po kliknięciu gdziekolwiek indziej
+    // Close menu when clicking anywhere outside of it
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setIsOpen(false);

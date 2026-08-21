@@ -169,19 +169,35 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                   {child.name}
                 </span>
 
-                <button 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    const params = new URLSearchParams(window.location.search);
-                    params.set("modal", "edit-trip");
-                    params.set("tripId", child.id);
-                    router.push(`?${params.toString()}`, { scroll: false });
-                  }}
-                  className="text-gray-400 hover:text-gray-700 transition-colors text-sm px-1 cursor-pointer"
-                  title="Edytuj"
-                >
-                  ⚙️
-                </button>
+                <div className="flex items-center gap-1 ml-auto pl-2">
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const params = new URLSearchParams(window.location.search);
+                      params.set("modal", "share-trip");
+                      params.set("tripId", child.id);
+                      router.push(`?${params.toString()}`, { scroll: false });
+                    }}
+                    className="flex items-center justify-center w-7 h-7 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded transition-colors text-base cursor-pointer"
+                    title="Udostępnij wycieczkę"
+                  >
+                    <span className="leading-none pb-0.5 text-lg">📨</span>
+                  </button>
+
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const params = new URLSearchParams(window.location.search);
+                      params.set("modal", "edit-trip");
+                      params.set("tripId", child.id);
+                      router.push(`?${params.toString()}`, { scroll: false });
+                    }}
+                    className="flex items-center justify-center w-7 h-7 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors text-sm cursor-pointer"
+                    title="Edytuj"
+                  >
+                    <span className="leading-none">⚙️</span>
+                  </button>
+                </div>
               </div>
               {renderTree(child.id, level + 1)}
             </div>

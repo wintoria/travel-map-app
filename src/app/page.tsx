@@ -9,6 +9,7 @@ import SidebarWrapper from "@/components/SidebarWrapper";
 import AddTripModal from "@/components/AddTripModal";
 import EditTripModal from "@/components/EditTripModal";
 import ManageTagsModal from "@/components/ManageTagsModal";
+import ShareTripModal from "@/components/ShareTripModal";
 
 export default async function Home({
   searchParams,
@@ -48,6 +49,8 @@ export default async function Home({
 
       {/* Render ManageTagsModal when URL param matches */}
       {params.modal === "manage-tags" && <ManageTagsModal />}
+
+      <ShareTripModal />
     </main>
   );
 }
