@@ -3,6 +3,7 @@ import "./globals.css";
 import "leaflet/dist/leaflet.css";
 import Topbar from "@/components/Topbar";
 import BottomNav from "@/components/BottomNav";
+import AuthWrapper from "@/components/AuthWrapper";
 
 export const metadata: Metadata = {
   title: "Travel Map App",
@@ -17,13 +18,15 @@ export default function RootLayout({
   return (
     <html lang="pl">
       <body className="bg-gray-50 text-gray-900 antialiased">
-        <Topbar />
-        
-        <div className="pt-16 pb-16 min-h-screen flex flex-col">
-          {children}
-        </div>
+        <AuthWrapper>
+          <Topbar />
+          
+          <div className="pt-16 pb-16 min-h-screen flex flex-col">
+            {children}
+          </div>
 
-        <BottomNav />
+          <BottomNav />
+        </AuthWrapper>
       </body>
     </html>
   );

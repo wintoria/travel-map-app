@@ -1,4 +1,5 @@
 import GlobalSearch from "./GlobalSearch";
+import UserMenu from "./UserMenu";
 
 export default function Topbar() {
   return (
@@ -11,6 +12,7 @@ export default function Topbar() {
       {/* Search bar pushed to the right */}
       <div className="w-full max-w-xs sm:max-w-sm flex justify-end">
         <GlobalSearch />
+        <UserMenu />
       </div>
     </header>
   );
