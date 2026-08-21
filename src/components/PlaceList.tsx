@@ -18,11 +18,11 @@ export default function PlaceList() {
     }
   };
 
-  // Fetch places and apply Sidebar filters (same logic as PlacesMarkers)
+  // Fetch places and apply Sidebar filters (trips, search, and tags)
   const fetchPlaces = async (event?: Event) => {
     const customEventData = (event as CustomEvent)?.detail;
     const tripsParam = customEventData?.trips ?? new URLSearchParams(window.location.search).get("trips");
-    // Get search query from event or URL
+    const tagsParam = customEventData?.tags ?? new URLSearchParams(window.location.search).get("tags");
     const searchParam = customEventData?.query ?? new URLSearchParams(window.location.search).get("q");
     const isExplicitlyEmpty = customEventData ? customEventData.isEmpty : tripsParam === "none";
 
@@ -39,7 +39,7 @@ export default function PlaceList() {
       query = query.or(`name.ilike.%${searchParam}%,address.ilike.%${searchParam}%,note.ilike.%${searchParam}%`);
     }
 
-    // Apply URL filters
+    // Apply Trip filter
     if (tripsParam && tripsParam !== "none") {
       const tripNames = tripsParam.split(",");
       const { data: tripsData } = await supabase.from("trips").select("id, name");
@@ -50,6 +50,27 @@ export default function PlaceList() {
           return;
         }
         query = query.in("trip_id", tripIds);
+      }
+    }
+
+    // Apply Tags filter
+    if (tagsParam) {
+      const tagNames = tagsParam.split(",");
+      const { data: catData } = await supabase.from("categories").select("id, name");
+      if (catData) {
+        const tagIds = catData.filter(c => tagNames.includes(c.name)).map(c => c.id);
+        if (tagIds.length > 0) {
+          // Find places that are linked to any of the selected tags
+          const { data: pcData } = await supabase.from("place_categories").select("place_id").in("category_id", tagIds);
+          if (pcData && pcData.length > 0) {
+            const validPlaceIds = pcData.map(pc => pc.place_id);
+            query = query.in("id", validPlaceIds);
+          } else {
+            // No places match the selected tags
+            setPlaces([]);
+            return;
+          }
+        }
       }
     }
 

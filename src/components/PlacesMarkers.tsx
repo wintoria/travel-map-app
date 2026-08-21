@@ -26,11 +26,11 @@ export default function PlacesMarkers() {
   const router = useRouter();
 
   useEffect(() => {
-    // We now accept optional CustomEvent detail object to bypass slow Next.js router URL updates
+    // Aaccept optional CustomEvent detail object to bypass slow Next.js router URL updates
     const fetchPlaces = async (event?: Event) => {
       const customEventData = (event as CustomEvent)?.detail;
       const tripsParam = customEventData?.trips ?? new URLSearchParams(window.location.search).get("trips");
-      // Get search query from event or URL
+      const tagsParam = customEventData?.tags ?? new URLSearchParams(window.location.search).get("tags");
       const searchParam = customEventData?.query ?? new URLSearchParams(window.location.search).get("q");
       const isExplicitlyEmpty = customEventData ? customEventData.isEmpty : tripsParam === "none";
 
@@ -47,7 +47,7 @@ export default function PlacesMarkers() {
         query = query.or(`name.ilike.%${searchParam}%,address.ilike.%${searchParam}%,note.ilike.%${searchParam}%`);
       }
 
-      // Filter only if specific folders are checked (meaning URL parameter exists and is not "none")
+      // Filter only if specific folders are checked
       if (tripsParam && tripsParam !== "none") {
         const tripNames = tripsParam.split(",");
         const { data: tripsData } = await supabase.from("trips").select("id, name");
@@ -62,7 +62,27 @@ export default function PlacesMarkers() {
           query = query.in("trip_id", tripIds);
         }
       }
-      // If no tripsParam exists, the query defaults to select("*"), matching the initial Sidebar state
+
+      // Apply Tags filter
+      if (tagsParam) {
+        const tagNames = tagsParam.split(",");
+        const { data: catData } = await supabase.from("categories").select("id, name");
+        if (catData) {
+          const tagIds = catData.filter(c => tagNames.includes(c.name)).map(c => c.id);
+          if (tagIds.length > 0) {
+            // Find places that are linked to any of the selected tags
+            const { data: pcData } = await supabase.from("place_categories").select("place_id").in("category_id", tagIds);
+            if (pcData && pcData.length > 0) {
+              const validPlaceIds = pcData.map(pc => pc.place_id);
+              query = query.in("id", validPlaceIds);
+            } else {
+              // No places match the selected tags
+              setPlaces([]);
+              return;
+            }
+          }
+        }
+      }
 
       const { data, error } = await query;
 
