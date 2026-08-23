@@ -124,7 +124,7 @@ export default function PlaceList() {
         {Object.keys(groupedPlaces).length === 0 ? (
           <p className="text-sm text-gray-500">Brak miejsc do wyświetlenia.</p>
         ) : (
-          Object.entries(groupedPlaces).map(([groupId, groupPlaces]) => {
+          Object.entries(groupedPlaces).map(([groupId, groupPlaces]: any) => {
             const trip = trips[groupId];
             const groupName = trip ? trip.name : "Bez kategorii";
             const groupIcon = trip?.icon || "🔖";

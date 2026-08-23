@@ -62,7 +62,9 @@ export default function MapClickHandler() {
   useEffect(() => {
     const handleSearch = () => setClickData(null);
     map.on("geosearch/showlocation", handleSearch);
-    return () => map.off("geosearch/showlocation", handleSearch);
+    return () => {
+      map.off("geosearch/showlocation", handleSearch);
+    };
   }, [map]);
 
   const handleSaveClick = (e: React.MouseEvent) => {
