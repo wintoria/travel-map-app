@@ -32,7 +32,13 @@ export default function PlaceList() {
       return;
     }
 
-    let query = supabase.from("places").select("*").order("created_at", { ascending: false });
+    // Filter out places missing coordinates so they don't appear in the main list
+    let query = supabase
+      .from("places")
+      .select("*")
+      .not("lat", "is", null)
+      .not("lng", "is", null)
+      .order("created_at", { ascending: false });
 
     // Apply text search filter across multiple columns
     if (searchParam) {

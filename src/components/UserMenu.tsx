@@ -1,11 +1,14 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
+import { useRouter, useSearchParams } from "next/navigation";
 
 export default function UserMenu() {
   const [isOpen, setIsOpen] = useState(false);
   const [email, setEmail] = useState("");
   const menuRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     // Fetch logged-in user data
@@ -44,6 +47,18 @@ export default function UserMenu() {
           </div>
           
           <div className="p-2 flex flex-col gap-1">
+            <button 
+              onClick={() => {
+                setIsOpen(false);
+                const params = new URLSearchParams(searchParams.toString());
+                params.set("modal", "import-google");
+                router.push(`?${params.toString()}`, { scroll: false });
+              }}
+              className="flex items-center gap-3 w-full px-3 py-2 text-sm font-bold text-gray-700 hover:bg-gray-100 rounded-md transition-colors text-left cursor-pointer"
+            >
+              <span>⬇️</span> Importuj z Google
+            </button>
+            
             <button 
               onClick={() => supabase.auth.signOut()} 
               className="flex items-center gap-3 w-full px-3 py-2 text-sm font-bold text-red-600 hover:bg-red-50 rounded-md transition-colors text-left cursor-pointer"

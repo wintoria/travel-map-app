@@ -10,6 +10,7 @@ import AddTripModal from "@/components/AddTripModal";
 import EditTripModal from "@/components/EditTripModal";
 import ManageTagsModal from "@/components/ManageTagsModal";
 import ShareTripModal from "@/components/ShareTripModal";
+import ImportModal from "@/components/ImportModal";
 
 export default async function Home({
   searchParams,
@@ -51,6 +52,8 @@ export default async function Home({
       {params.modal === "manage-tags" && <ManageTagsModal />}
 
       <ShareTripModal />
+
+      <ImportModal />
     </main>
   );
 }

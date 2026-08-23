@@ -40,7 +40,13 @@ export default function PlacesMarkers() {
         return;
       }
 
-      let query = supabase.from("places").select("*").order("created_at", { ascending: false });
+      // Only fetch places that have valid coordinates to prevent map rendering errors
+      let query = supabase
+        .from("places")
+        .select("*")
+        .not("lat", "is", null)
+        .not("lng", "is", null)
+        .order("created_at", { ascending: false });
 
       // Apply text search filter across multiple columns
       if (searchParam) {
