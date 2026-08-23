@@ -1,8 +1,9 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import TagSelector from "./TagSelector";
+import { OpenStreetMapProvider } from "leaflet-geosearch";
 
 export default function EditPlaceModal({ currentView }: { currentView: string }) {
   const router = useRouter();
@@ -13,8 +14,17 @@ export default function EditPlaceModal({ currentView }: { currentView: string })
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSearchingCoords, setIsSearchingCoords] = useState(false);
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const [place, setPlace] = useState<any>(null);
   const [initialCategories, setInitialCategories] = useState<string[]>([]);
+
+  // Refs to directly manipulate the form inputs without re-rendering everything
+  const nameRef = useRef<HTMLInputElement>(null);
+  const addressRef = useRef<HTMLInputElement>(null);
+  const latRef = useRef<HTMLInputElement>(null);
+  const lngRef = useRef<HTMLInputElement>(null);
 
   // Store all available trips for the dropdown hierarchy
   const [trips, setTrips] = useState<any[]>([]);
@@ -148,6 +158,51 @@ export default function EditPlaceModal({ currentView }: { currentView: string })
     }
   };
 
+  // Function to interactively find coordinates based on name and address inputs
+  const handleAutoSearch = async () => {
+    const name = nameRef.current?.value || "";
+    const address = addressRef.current?.value || "";
+
+    // Build query from both fields for better context
+    const query = `${name} ${address}`.trim();
+    if (!query) {
+      setSearchError("Wpisz nazwę lub adres, aby wyszukać.");
+      setSearchResults([]);
+      return;
+    }
+
+    setIsSearchingCoords(true);
+    setSearchError(null);
+    setSearchResults([]);
+    
+    try {
+      const provider = new OpenStreetMapProvider();
+      // We don't strip special characters here so standard address formats work better
+      const results = await provider.search({ query });
+
+      if (results && results.length > 0) {
+        setSearchResults(results);
+      } else {
+        setSearchError("Nie znaleziono wyników. Spróbuj dopisać lub zmienić miasto w polu adresu.");
+      }
+    } catch (error) {
+      console.error("Geosearch error:", error);
+      setSearchError("Błąd połączenia z mapą. Spróbuj ponownie.");
+    } finally {
+      setIsSearchingCoords(false);
+    }
+  };
+
+  // Function to handle the user selecting a specific result from the list
+  const handleSelectResult = (result: any) => {
+    if (latRef.current) latRef.current.value = result.y.toString();
+    if (lngRef.current) lngRef.current.value = result.x.toString();
+    
+    // Clear search UI after successful selection
+    setSearchResults([]);
+    setSearchError(null);
+  };
+
   if (modalType !== "edit-place") return null;
 
   const renderOptions = (parentId: string | null = null, level: number = 0) => {
@@ -184,7 +239,7 @@ export default function EditPlaceModal({ currentView }: { currentView: string })
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Nazwa miejsca *</label>
-                <input type="text" name="name" required defaultValue={place?.name} className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-blue-500 text-gray-800" />
+                <input ref={nameRef} type="text" name="name" required defaultValue={place?.name} className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-blue-500 text-gray-800" />
               </div>
 
               <div>
@@ -200,20 +255,62 @@ export default function EditPlaceModal({ currentView }: { currentView: string })
                 </select>
               </div>
 
-              <div className="flex gap-4">
-                <div className="flex-1">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Lat *</label>
-                  <input type="text" name="lat" required defaultValue={place?.lat} className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-blue-500 text-gray-800" />
+              {/* Coordinates Section with Smart Geosearch Button */}
+              <div className="flex flex-col gap-1 pt-1">
+                <div className="flex justify-between items-center mb-1">
+                  <label className="block text-sm font-medium text-gray-700">Współrzędne (Lat / Lng) *</label>
+                  <button
+                    type="button"
+                    onClick={handleAutoSearch}
+                    disabled={isSearchingCoords}
+                    className="text-xs bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold py-1.5 px-3 rounded flex items-center gap-1 transition-colors disabled:opacity-50 cursor-pointer shadow-sm"
+                    title="Pobierz z OpenStreetMap na podstawie nazwy i adresu"
+                  >
+                    {isSearchingCoords ? "⏳ Szukam..." : "📍 Znajdź na mapie"}
+                  </button>
                 </div>
-                <div className="flex-1">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Lng *</label>
-                  <input type="text" name="lng" required defaultValue={place?.lng} className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-blue-500 text-gray-800" />
+                
+                {/* Inline Error UI (replaces system alerts) */}
+                {searchError && (
+                  <div className="bg-red-50 text-red-700 text-xs p-2.5 rounded-lg border border-red-200 mb-1 flex justify-between items-center animate-in fade-in">
+                    <span>{searchError}</span>
+                    <button type="button" onClick={() => setSearchError(null)} className="text-red-500 hover:text-red-800 cursor-pointer text-lg leading-none ml-2">✕</button>
+                  </div>
+                )}
+
+                {/* Interactive Search Results List */}
+                {searchResults.length > 0 && (
+                  <div className="bg-white border border-gray-200 rounded-lg shadow-md max-h-48 overflow-y-auto mb-2 z-10 flex flex-col animate-in fade-in zoom-in duration-150">
+                    <div className="bg-gray-50 p-2 text-xs font-bold text-gray-500 border-b border-gray-200 flex justify-between items-center sticky top-0">
+                      <span>Wybierz właściwe miejsce ({searchResults.length}):</span>
+                      <button type="button" onClick={() => setSearchResults([])} className="text-gray-400 hover:text-gray-700 cursor-pointer text-lg leading-none">✕</button>
+                    </div>
+                    {searchResults.map((result, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => handleSelectResult(result)}
+                        className="text-left p-2.5 text-xs text-gray-700 hover:bg-amber-50 border-b border-gray-100 last:border-0 cursor-pointer transition-colors"
+                      >
+                        {result.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex gap-4">
+                  <div className="flex-1">
+                    <input ref={latRef} type="text" name="lat" required defaultValue={place?.lat || ""} className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-blue-500 text-gray-800" placeholder="np. 52.229" />
+                  </div>
+                  <div className="flex-1">
+                    <input ref={lngRef} type="text" name="lng" required defaultValue={place?.lng || ""} className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-blue-500 text-gray-800" placeholder="np. 21.012" />
+                  </div>
                 </div>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Adres</label>
-                <input type="text" name="address" defaultValue={place?.address} className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-blue-500 text-gray-800" />
+                <input ref={addressRef} type="text" name="address" defaultValue={place?.address} className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-blue-500 text-gray-800" placeholder="Opcjonalnie (pomaga w wyszukiwaniu)" />
               </div>
 
               <div>

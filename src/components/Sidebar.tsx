@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter, useSearchParams } from "next/navigation";
-import { OpenStreetMapProvider } from "leaflet-geosearch";
+import { OpenStreetMapProvider } from "leaflet-geosearch"
 
 interface SidebarProps {
   isOpen: boolean;
@@ -32,26 +32,22 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const [isTripsOpen, setIsTripsOpen] = useState(true);
   const [isTagsOpen, setIsTagsOpen] = useState(false);
 
-  // Execute actual deletion from the database
-  const executeDeletePending = async (id: string) => {
-    const { error } = await supabase.from("places").delete().eq("id", id);
-    if (!error) {
-      setPendingPlaces(prev => prev.filter(p => p.id !== id));
-      setDeleteConfirmId(null); // Close confirmation
-      window.dispatchEvent(new Event("places-updated"));
-    } else {
-      alert("Błąd podczas usuwania.");
-    }
+  // Fetch pending places (separated so it can be re-used by the event listener)
+  const fetchPendingPlaces = async () => {
+    const { data } = await supabase
+      .from("places")
+      .select("id, name, note")
+      .is("lat", null)
+      .order("created_at", { ascending: false });
+    
+    setPendingPlaces(data || []);
   };
 
   // State to track the batch geocoding progress
   const [geocodeProgress, setGeocodeProgress] = useState({ 
-    isRunning: false, 
-    current: 0, 
-    total: 0, 
-    found: 0 
+    isRunning: false, current: 0, total: 0, found: 0 
   });
-
+  
   // State for the beautiful inline summary message
   const [geocodeSummary, setGeocodeSummary] = useState<string | null>(null);
 
@@ -71,14 +67,12 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       setGeocodeProgress(prev => ({ ...prev, current: i + 1 }));
 
       try {
-        // 1. Fetch data from OpenStreetMap (clean query only)
         const cleanQuery = place.name.replace(/[^\w\s\u0100-\u024F]/gi, '').trim();
         const results = await provider.search({ query: cleanQuery });
 
         if (results && results.length > 0) {
           const nameWords = cleanQuery.toLowerCase().split(/\s+/).filter((w: string) => w.length > 2);
           
-          // 2. Filter results through our safety checks FIRST
           const safeMatches = results.filter(match => {
             const raw = match.raw as any;
             const isNotJustCity = raw.class !== 'boundary' && raw.class !== 'place';
@@ -86,45 +80,46 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             return isNotJustCity && hasTextMatch;
           });
 
-          // 3. STRICT RULE: Only save if there is exactly one safe match
+          // STRICT RULE: Only save if exactly one match
           if (safeMatches.length === 1) {
             const bestMatch = safeMatches[0];
-            
-            // SAFE MATCH: Update database
-            const { error } = await supabase
-              .from("places")
-              .update({ lat: bestMatch.y, lng: bestMatch.x })
-              .eq("id", place.id);
+            const { error } = await supabase.from("places").update({ lat: bestMatch.y, lng: bestMatch.x }).eq("id", place.id);
 
             if (!error) {
               foundCount++;
-              // Remove successfully located place from the pending list immediately
               setPendingPlaces(prev => prev.filter(p => p.id !== place.id));
               window.dispatchEvent(new Event("places-updated"));
             }
-          } else {
-            // UNSAFE MATCH: 0 matches or multiple matches (ambiguous)
-            console.log(`Unsafe match for: ${place.name} (Found ${safeMatches.length} safe candidates) - keeping as pending.`);
           }
         }
       } catch (err) {
-        // TEMPORARY ERROR (e.g. network timeout): Safely ignore and continue
         console.error(`Geocoding error for ${place.name}`, err);
       }
 
-      // 4. RATE LIMITING (Strict 1.5s delay to comply with Nominatim rules)
       if (i < placesToProcess.length - 1) {
         await new Promise(resolve => setTimeout(resolve, 1500));
       }
     }
 
-    // Finish process and show summary inline
     setGeocodeProgress({ isRunning: false, current: 0, total: 0, found: 0 });
     setGeocodeSummary(`Zakończono! Znaleziono automatycznie: ${foundCount} z ${placesToProcess.length}.\nReszta (${placesToProcess.length - foundCount}) wymaga ręcznego uzupełnienia.`);
-    // Auto-hide the summary message
+    
+    // Auto-hide the summary message after 6 seconds
     setTimeout(() => {
       setGeocodeSummary(null);
     }, 6000);
+  };
+
+  // Execute actual deletion from the database
+  const executeDeletePending = async (id: string) => {
+    const { error } = await supabase.from("places").delete().eq("id", id);
+    if (!error) {
+      setPendingPlaces(prev => prev.filter(p => p.id !== id));
+      setDeleteConfirmId(null); 
+      window.dispatchEvent(new Event("places-updated"));
+    } else {
+      alert("Błąd podczas usuwania.");
+    }
   };
 
   // Unified filter updater for both trips and tags
@@ -208,11 +203,17 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     };
 
     fetchFilters();
+    fetchPendingPlaces(); // Fetch pending places on initial load
 
     // Listeners for data updates
     window.addEventListener("trips-updated", fetchFilters);
+    
+    // Listen for place updates to refresh the pending list
+    window.addEventListener("places-updated", fetchPendingPlaces); 
+    
     return () => {
       window.removeEventListener("trips-updated", fetchFilters);
+      window.removeEventListener("places-updated", fetchPendingPlaces);
     };
   }, []);
 
