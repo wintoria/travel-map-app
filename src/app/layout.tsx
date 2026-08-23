@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import "leaflet/dist/leaflet.css";
-import Topbar from "@/components/Topbar";
-import BottomNav from "@/components/BottomNav";
-import AuthWrapper from "@/components/AuthWrapper";
+import Topbar from "@/components/layout/Topbar";
+import BottomNav from "@/components/layout/BottomNav";
+import AuthWrapper from "@/components/auth/AuthWrapper";
 
 export const metadata: Metadata = {
   title: "Travel Map App",

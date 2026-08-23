@@ -1,15 +1,7 @@
 "use client";
 import dynamic from "next/dynamic";
 
-type Place = {
-  id: string;
-  name: string;
-  lat: number;
-  lng: number;
-  note: string;
-};
-
-const MapWidget = dynamic(() => import("@/components/MapWidget"), {
+const MapWidget = dynamic(() => import("@/components/map/MapWidget"), {
   ssr: false,
   loading: () => (
     <div className="flex-1 flex items-center justify-center">

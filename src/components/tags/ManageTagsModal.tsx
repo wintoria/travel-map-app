@@ -2,29 +2,15 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
-
-// Contrast calculator for tag rendering
-const getContrastColor = (hexColor: string) => {
-  if (!hexColor) return '#000000';
-  let color = hexColor.trim().toLowerCase();
-  const namedColors: Record<string, string> = {
-    white: 'ffffff', black: '000000', red: 'ff0000', green: '008000', blue: '0000ff', 
-    yellow: 'ffff00', orange: 'ffa500', purple: '800080', gray: '808080', brown: 'a52a2a'
-  };
-  color = namedColors[color] || color.replace(/[^0-9a-f]/g, '');
-  if (color.length === 3) color = color.split('').map(c => c + c).join('');
-  if (color.length !== 6) return '#000000'; 
-  const r = parseInt(color.substring(0, 2), 16);
-  const g = parseInt(color.substring(2, 4), 16);
-  const b = parseInt(color.substring(4, 6), 16);
-  return ((r * 299 + g * 587 + b * 114) / 1000) > 140 ? '#000000' : '#ffffff';
-};
+import { getContrastColor, effectiveTagColor } from "@/lib/color";
+import { fetchCategories as loadCategories } from "@/lib/api/categories";
+import type { Category } from "@/lib/types";
 
 export default function ManageTagsModal() {
   const router = useRouter();
-  const [categories, setCategories] = useState<any[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  
+
   // States for inline editing
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
@@ -33,16 +19,17 @@ export default function ManageTagsModal() {
   // State for tracking which tag is pending deletion
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchCategories();
-  }, []);
-
   const fetchCategories = async () => {
     setIsLoading(true);
-    const { data } = await supabase.from("categories").select("*").order("name");
-    if (data) setCategories(data);
+    setCategories(await loadCategories());
     setIsLoading(false);
   };
+
+  useEffect(() => {
+    // Async fetch-on-mount: setState runs after await, so cascading-render rule is a false positive here.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchCategories();
+  }, []);
 
   const confirmDelete = async (id: string) => {
     // Perform the actual deletion after confirmation
@@ -52,15 +39,7 @@ export default function ManageTagsModal() {
     router.refresh();
   };
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm("Czy na pewno chcesz usunąć ten tag? Zostanie on usunięty ze wszystkich miejsc.")) return;
-    
-    await supabase.from("categories").delete().eq("id", id);
-    setCategories(prev => prev.filter(cat => cat.id !== id));
-    router.refresh();
-  };
-
-  const startEdit = (cat: any) => {
+  const startEdit = (cat: Category) => {
     setEditingId(cat.id);
     setEditName(cat.name);
     setEditIcon(cat.icon || "");
@@ -116,9 +95,7 @@ export default function ManageTagsModal() {
             <div className="space-y-2">
               {categories.map((cat) => {
                 const isEditing = editingId === cat.id;
-                const rawColor = cat.color || '#ffffff';
-                const isWhite = rawColor.toLowerCase().includes('ffffff') || rawColor.trim().toLowerCase() === 'white';
-                const effectiveColor = isWhite ? '#e5e7eb' : rawColor;
+                const effectiveColor = effectiveTagColor(cat.color);
 
                 return (
                   <div key={cat.id} className="p-2 border border-gray-100 rounded-lg bg-gray-50/50 flex flex-col gap-2 hover:bg-gray-50 transition-colors">
@@ -163,7 +140,7 @@ export default function ManageTagsModal() {
                         <span 
                           style={{ 
                             backgroundColor: effectiveColor, 
-                            color: getContrastColor(effectiveColor),
+                            color: getContrastColor(effectiveColor, 140),
                             borderColor: effectiveColor
                           }}
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border shadow-sm"

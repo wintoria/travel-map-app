@@ -4,25 +4,28 @@ import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import React from "react";
-import TagSelector from "./TagSelector";
+import TagSelector from "@/components/tags/TagSelector";
+import { childrenOf } from "@/lib/tree";
+import { AppEvent, emit } from "@/lib/events";
+import type { Trip } from "@/lib/types";
 
 export default function AddPlaceModal({ currentView }: { currentView: string }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [trips, setTrips] = useState<any[]>([]);
+  const [trips, setTrips] = useState<Trip[]>([]);
 
   // Fetch available trips for the dropdown
   useEffect(() => {
     supabase.from("trips").select("id, name, icon, parent_id").then(({ data }) => {
-      if (data) setTrips(data);
+      if (data) setTrips(data as Trip[]);
     });
   }, []);
 
   // Recursive function to build infinite dropdown nesting
   const renderOptions = (parentId: string | null = null, level: number = 0) => {
-    const children = trips.filter((t) => (t.parent_id || null) === (parentId || null));
+    const children = childrenOf(trips, parentId);
     return children.map((child) => (
       <React.Fragment key={child.id}>
         <option value={child.id} className={level === 0 ? "font-bold" : ""}>
@@ -148,7 +151,7 @@ export default function AddPlaceModal({ currentView }: { currentView: string }) 
 
       // Delay the refresh signal slightly so database and cache can sync
       setTimeout(() => {
-        window.dispatchEvent(new Event("places-updated"));
+        emit(AppEvent.placesUpdated);
       }, 300);
 
     } catch (error) {

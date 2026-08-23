@@ -1,16 +1,15 @@
-import { supabase } from "@/lib/supabase";
-import Map from "@/components/Map";
-import PlaceList from "@/components/PlaceList";
+import Map from "@/components/map/Map";
+import PlaceList from "@/components/list/PlaceList";
 import Link from "next/link";
-import AddPlaceModal from "@/components/AddPlaceModal";
-import ViewPlaceModal from "@/components/ViewPlaceModal";
-import EditPlaceModal from "@/components/EditPlaceModal";
-import SidebarWrapper from "@/components/SidebarWrapper";
-import AddTripModal from "@/components/AddTripModal";
-import EditTripModal from "@/components/EditTripModal";
-import ManageTagsModal from "@/components/ManageTagsModal";
-import ShareTripModal from "@/components/ShareTripModal";
-import ImportModal from "@/components/ImportModal";
+import AddPlaceModal from "@/components/modals/AddPlaceModal";
+import ViewPlaceModal from "@/components/modals/ViewPlaceModal";
+import EditPlaceModal from "@/components/modals/EditPlaceModal";
+import SidebarWrapper from "@/components/sidebar/SidebarWrapper";
+import AddTripModal from "@/components/modals/AddTripModal";
+import EditTripModal from "@/components/modals/EditTripModal";
+import ManageTagsModal from "@/components/tags/ManageTagsModal";
+import ShareTripModal from "@/components/modals/ShareTripModal";
+import ImportModal from "@/components/modals/ImportModal";
 
 export default async function Home({
   searchParams,
@@ -39,7 +38,7 @@ export default async function Home({
 
       <ViewPlaceModal />
 
-      <EditPlaceModal currentView={view} />
+      <EditPlaceModal />
 
       {/* Sidebar wrapper handles button and state internally */}
       <SidebarWrapper />

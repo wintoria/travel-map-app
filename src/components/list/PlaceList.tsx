@@ -2,101 +2,46 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { fetchFilteredPlaces, resolvePlaceFilters } from "@/lib/api/places";
+import { AppEvent } from "@/lib/events";
+import { openModal } from "@/lib/url";
+import type { Place, Trip } from "@/lib/types";
 
 export default function PlaceList() {
   const router = useRouter();
-  const [places, setPlaces] = useState<any[]>([]);
-  const [trips, setTrips] = useState<Record<string, any>>({});
+  const [places, setPlaces] = useState<Place[]>([]);
+  const [trips, setTrips] = useState<Record<string, Trip>>({});
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
 
   // Fetch trips to get their names and icons for grouping headers
   const fetchTripsInfo = async () => {
     const { data } = await supabase.from("trips").select("id, name, icon");
     if (data) {
-      const tripsMap = data.reduce((acc, trip) => ({ ...acc, [trip.id]: trip }), {});
+      const tripsMap = data.reduce((acc, trip) => ({ ...acc, [trip.id]: trip }), {} as Record<string, Trip>);
       setTrips(tripsMap);
     }
   };
 
   // Fetch places and apply Sidebar filters (trips, search, and tags)
   const fetchPlaces = async (event?: Event) => {
-    const customEventData = (event as CustomEvent)?.detail;
-    const tripsParam = customEventData?.trips ?? new URLSearchParams(window.location.search).get("trips");
-    const tagsParam = customEventData?.tags ?? new URLSearchParams(window.location.search).get("tags");
-    const searchParam = customEventData?.query ?? new URLSearchParams(window.location.search).get("q");
-    const isExplicitlyEmpty = customEventData ? customEventData.isEmpty : tripsParam === "none";
-
-    // Stop if everything is unchecked in the Sidebar
-    if (isExplicitlyEmpty) {
-      setPlaces([]);
-      return;
-    }
-
-    // Filter out places missing coordinates so they don't appear in the main list
-    let query = supabase
-      .from("places")
-      .select("*")
-      .not("lat", "is", null)
-      .not("lng", "is", null)
-      .order("created_at", { ascending: false });
-
-    // Apply text search filter across multiple columns
-    if (searchParam) {
-      query = query.or(`name.ilike.%${searchParam}%,address.ilike.%${searchParam}%,note.ilike.%${searchParam}%`);
-    }
-
-    // Apply Trip filter
-    if (tripsParam && tripsParam !== "none") {
-      const tripNames = tripsParam.split(",");
-      const { data: tripsData } = await supabase.from("trips").select("id, name");
-      if (tripsData) {
-        const tripIds = tripsData.filter(t => tripNames.includes(t.name)).map(t => t.id);
-        if (tripIds.length === 0) {
-          setPlaces([]);
-          return;
-        }
-        query = query.in("trip_id", tripIds);
-      }
-    }
-
-    // Apply Tags filter
-    if (tagsParam) {
-      const tagNames = tagsParam.split(",");
-      const { data: catData } = await supabase.from("categories").select("id, name");
-      if (catData) {
-        const tagIds = catData.filter(c => tagNames.includes(c.name)).map(c => c.id);
-        if (tagIds.length > 0) {
-          // Find places that are linked to any of the selected tags
-          const { data: pcData } = await supabase.from("place_categories").select("place_id").in("category_id", tagIds);
-          if (pcData && pcData.length > 0) {
-            const validPlaceIds = pcData.map(pc => pc.place_id);
-            query = query.in("id", validPlaceIds);
-          } else {
-            // No places match the selected tags
-            setPlaces([]);
-            return;
-          }
-        }
-      }
-    }
-
-    const { data } = await query;
-    if (data) setPlaces(data);
+    setPlaces(await fetchFilteredPlaces(resolvePlaceFilters(event)));
   };
 
   useEffect(() => {
+    // Async fetch-on-mount: setState runs after await, so cascading-render rule is a false positive here.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchTripsInfo();
     fetchPlaces();
 
     // Listen to changes from Sidebar and Modals
-    window.addEventListener("places-updated", fetchPlaces);
-    window.addEventListener("search-changed", fetchPlaces as EventListener);
-    window.addEventListener("filters-changed", fetchPlaces);
-    
+    window.addEventListener(AppEvent.placesUpdated, fetchPlaces);
+    window.addEventListener(AppEvent.searchChanged, fetchPlaces as EventListener);
+    window.addEventListener(AppEvent.filtersChanged, fetchPlaces);
+
     return () => {
-      window.removeEventListener("places-updated", fetchPlaces);
-      window.removeEventListener("search-changed", fetchPlaces as EventListener);
-      window.removeEventListener("filters-changed", fetchPlaces);
+      window.removeEventListener(AppEvent.placesUpdated, fetchPlaces);
+      window.removeEventListener(AppEvent.searchChanged, fetchPlaces as EventListener);
+      window.removeEventListener(AppEvent.filtersChanged, fetchPlaces);
     };
   }, []);
 
@@ -114,7 +59,7 @@ export default function PlaceList() {
     if (!acc[groupId]) acc[groupId] = [];
     acc[groupId].push(place);
     return acc;
-  }, {} as Record<string, any[]>);
+  }, {} as Record<string, Place[]>);
 
   return (
     <div className="absolute top-4 bottom-4 left-4 right-4 bg-gray-50 rounded-lg p-4 shadow-inner overflow-y-auto">
@@ -124,7 +69,7 @@ export default function PlaceList() {
         {Object.keys(groupedPlaces).length === 0 ? (
           <p className="text-sm text-gray-500">Brak miejsc do wyświetlenia.</p>
         ) : (
-          Object.entries(groupedPlaces).map(([groupId, groupPlaces]: any) => {
+          Object.entries(groupedPlaces).map(([groupId, groupPlaces]) => {
             const trip = trips[groupId];
             const groupName = trip ? trip.name : "Bez kategorii";
             const groupIcon = trip?.icon || "🔖";
@@ -149,16 +94,10 @@ export default function PlaceList() {
                 {/* Places inside the group */}
                 {!isCollapsed && (
                   <div className="p-2 space-y-2">
-                    {groupPlaces.map((place: any) => (
+                    {groupPlaces.map((place) => (
                       <div
                         key={place.id}
-                        onClick={() => {
-                          // Open View Details Modal
-                          const params = new URLSearchParams(window.location.search);
-                          params.set("modal", "view-place");
-                          params.set("placeId", place.id);
-                          router.push(`?${params.toString()}`, { scroll: false });
-                        }}
+                        onClick={() => openModal(router, "view-place", { placeId: place.id })}
                         className="p-3 rounded-lg border border-gray-50 hover:border-blue-100 hover:bg-blue-50/50 cursor-pointer transition-all group"
                       >
                         <div className="flex justify-between items-start">
@@ -170,7 +109,7 @@ export default function PlaceList() {
                           )}
                         </div>
                         {place.address && <p className="text-xs text-gray-500 mt-1 line-clamp-1">{place.address}</p>}
-                        {place.note && <p className="text-xs text-gray-400 mt-1 line-clamp-1 italic">"{place.note}"</p>}
+                        {place.note && <p className="text-xs text-gray-400 mt-1 line-clamp-1 italic">&quot;{place.note}&quot;</p>}
                       </div>
                     ))}
                   </div>

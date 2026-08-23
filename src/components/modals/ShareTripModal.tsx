@@ -56,7 +56,7 @@ export default function ShareTripModal() {
         setMessage({ text: "Wycieczka udostępniona pomyślnie!", type: "success" });
         setEmail(""); // Clear the input after success
       }
-    } catch (error) {
+    } catch {
       setMessage({ text: "Wystąpił nieoczekiwany błąd.", type: "error" });
     } finally {
       setLoading(false);

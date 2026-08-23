@@ -1,16 +1,22 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
+import { openModal } from "@/lib/url";
+
+// The non-standard PWA install prompt event (not yet in TS DOM lib).
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
+}
 
 export default function UserMenu() {
   const [isOpen, setIsOpen] = useState(false);
   const [email, setEmail] = useState("");
   // State to hold the PWA install event
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   useEffect(() => {
     // Fetch logged-in user data
@@ -30,7 +36,7 @@ export default function UserMenu() {
     // Capture the PWA install prompt event
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
-      setDeferredPrompt(e);
+      setDeferredPrompt(e as BeforeInstallPromptEvent);
     };
     
     document.addEventListener("mousedown", handleClickOutside);
@@ -83,9 +89,7 @@ export default function UserMenu() {
             <button 
               onClick={() => {
                 setIsOpen(false);
-                const params = new URLSearchParams(searchParams.toString());
-                params.set("modal", "import-google");
-                router.push(`?${params.toString()}`, { scroll: false });
+                openModal(router, "import-google");
               }}
               className="flex items-center gap-3 w-full px-3 py-2 text-sm font-bold text-gray-700 hover:bg-gray-100 rounded-md transition-colors text-left cursor-pointer"
             >

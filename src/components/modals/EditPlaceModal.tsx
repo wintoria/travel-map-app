@@ -2,22 +2,31 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import TagSelector from "./TagSelector";
+import TagSelector from "@/components/tags/TagSelector";
 import { OpenStreetMapProvider } from "leaflet-geosearch";
+import { childrenOf } from "@/lib/tree";
+import { AppEvent, emit } from "@/lib/events";
+import { closeModal, openModal } from "@/lib/url";
+import type { Place, Trip } from "@/lib/types";
 
-export default function EditPlaceModal({ currentView }: { currentView: string }) {
+// A geocoding result from leaflet-geosearch (coordinates in y/x).
+type GeoResult = { x: number; y: number; label: string };
+// Place row plus its category relations, as fetched for editing.
+type EditPlace = Place & { place_categories?: { category_id: string }[] };
+
+export default function EditPlaceModal() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  
+
   const modalType = searchParams.get("modal");
   const placeId = searchParams.get("placeId");
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSearchingCoords, setIsSearchingCoords] = useState(false);
-  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchResults, setSearchResults] = useState<GeoResult[]>([]);
   const [searchError, setSearchError] = useState<string | null>(null);
-  const [place, setPlace] = useState<any>(null);
+  const [place, setPlace] = useState<EditPlace | null>(null);
   const [initialCategories, setInitialCategories] = useState<string[]>([]);
 
   // Refs to directly manipulate the form inputs without re-rendering everything
@@ -27,7 +36,7 @@ export default function EditPlaceModal({ currentView }: { currentView: string })
   const lngRef = useRef<HTMLInputElement>(null);
 
   // Store all available trips for the dropdown hierarchy
-  const [trips, setTrips] = useState<any[]>([]);
+  const [trips, setTrips] = useState<Trip[]>([]);
 
   // Fetch existing data to populate the form
   useEffect(() => {
@@ -48,9 +57,9 @@ export default function EditPlaceModal({ currentView }: { currentView: string })
         .single();
 
       if (!placeError && placeData) {
-        setPlace(placeData);
+        setPlace(placeData as EditPlace);
         if (placeData.place_categories) {
-          setInitialCategories(placeData.place_categories.map((pc: any) => pc.category_id));
+          setInitialCategories(placeData.place_categories.map((pc: { category_id: string }) => pc.category_id));
         }
       }
 
@@ -59,7 +68,7 @@ export default function EditPlaceModal({ currentView }: { currentView: string })
         .select("id, name, parent_id, icon")
         .order("created_at", { ascending: true });
         
-      if (tripsData) setTrips(tripsData);
+      if (tripsData) setTrips(tripsData as Trip[]);
 
       // Hide loading screen only after new data is ready
       setIsLoading(false);
@@ -69,19 +78,10 @@ export default function EditPlaceModal({ currentView }: { currentView: string })
   }, [modalType, placeId]);
 
   // Close completely to map view by clearing modal parameters
-  const handleCloseToMap = () => {
-    const params = new URLSearchParams(window.location.search);
-    params.delete("modal");
-    params.delete("placeId");
-    router.push(`?${params.toString()}`, { scroll: false });
-  };
+  const handleCloseToMap = () => closeModal(router, ["placeId"]);
 
-  // Go back to the view details modal
-  const handleBackToDetails = () => {
-    const params = new URLSearchParams(window.location.search);
-    params.set("modal", "view-place"); // Keep the same placeId, just change modal type
-    router.push(`?${params.toString()}`, { scroll: false });
-  };
+  // Go back to the view details modal (keep the same placeId, just change modal type)
+  const handleBackToDetails = () => openModal(router, "view-place");
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -108,7 +108,7 @@ export default function EditPlaceModal({ currentView }: { currentView: string })
 
       // Handle file upload if a new file is provided
       const file = formData.get("additionalInfoFile") as File;
-      let attachedFileUrl = place.attached_file; // Keep old file by default
+      let attachedFileUrl = place?.attached_file ?? null; // Keep old file by default
 
       if (file && file.size > 0) {
         const fileExt = file.name.substring(file.name.lastIndexOf('.'));
@@ -148,7 +148,7 @@ export default function EditPlaceModal({ currentView }: { currentView: string })
 
       // Return to details modal and refresh map in the background
       handleBackToDetails();
-      setTimeout(() => window.dispatchEvent(new Event("places-updated")), 300);
+      setTimeout(() => emit(AppEvent.placesUpdated), 300);
 
     } catch (error) {
       console.error("Update error:", error);
@@ -194,7 +194,7 @@ export default function EditPlaceModal({ currentView }: { currentView: string })
   };
 
   // Function to handle the user selecting a specific result from the list
-  const handleSelectResult = (result: any) => {
+  const handleSelectResult = (result: GeoResult) => {
     if (latRef.current) latRef.current.value = result.y.toString();
     if (lngRef.current) lngRef.current.value = result.x.toString();
     
@@ -206,7 +206,7 @@ export default function EditPlaceModal({ currentView }: { currentView: string })
   if (modalType !== "edit-place") return null;
 
   const renderOptions = (parentId: string | null = null, level: number = 0) => {
-    const children = trips.filter((t) => (t.parent_id || null) === (parentId || null));
+    const children = childrenOf(trips, parentId);
     return children.map((child) => (
       <React.Fragment key={child.id}>
         <option value={child.id} className={level === 0 ? "font-bold" : ""}>
@@ -247,7 +247,7 @@ export default function EditPlaceModal({ currentView }: { currentView: string })
                 <select 
                   name="trip_id" 
                   required 
-                  defaultValue={place?.trip_id}
+                  defaultValue={place?.trip_id ?? ""}
                   className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-blue-500 text-gray-800 bg-white"
                 >
                   <option value="">-- Wybierz zakładkę --</option>
@@ -310,17 +310,17 @@ export default function EditPlaceModal({ currentView }: { currentView: string })
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Adres</label>
-                <input ref={addressRef} type="text" name="address" defaultValue={place?.address} className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-blue-500 text-gray-800" placeholder="Opcjonalnie (pomaga w wyszukiwaniu)" />
+                <input ref={addressRef} type="text" name="address" defaultValue={place?.address ?? ""} className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-blue-500 text-gray-800" placeholder="Opcjonalnie (pomaga w wyszukiwaniu)" />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Szacowany czas</label>
-                <input type="text" name="duration" defaultValue={place?.duration} className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-blue-500 text-gray-800" />
+                <input type="text" name="duration" defaultValue={place?.duration ?? ""} className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-blue-500 text-gray-800" />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Notatka</label>
-                <textarea name="note" rows={3} defaultValue={place?.note} className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-blue-500 text-gray-800 resize-none" />
+                <textarea name="note" rows={3} defaultValue={place?.note ?? ""} className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-blue-500 text-gray-800 resize-none" />
               </div>
 
               <div>
@@ -330,12 +330,12 @@ export default function EditPlaceModal({ currentView }: { currentView: string })
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Google Maps URL</label>
-                <input type="url" name="googleMapsUrl" defaultValue={place?.google_maps_url} className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-blue-500 text-gray-800" />
+                <input type="url" name="googleMapsUrl" defaultValue={place?.google_maps_url ?? ""} className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-blue-500 text-gray-800" />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Strona WWW</label>
-                <input type="url" name="additionalInfoUrl" defaultValue={place?.additional_link} className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-blue-500 text-gray-800 mb-4" />
+                <input type="url" name="additionalInfoUrl" defaultValue={place?.additional_link ?? ""} className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-blue-500 text-gray-800 mb-4" />
                 
                 <label className="block text-sm font-medium text-gray-700 mb-1">Załącznik</label>
                 

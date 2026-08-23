@@ -1,29 +1,37 @@
 "use client";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { OpenStreetMapProvider } from "leaflet-geosearch"
+import { fetchTrips } from "@/lib/api/trips";
+import { fetchCategories } from "@/lib/api/categories";
+import { fetchPendingPlaces as loadPendingPlaces, deletePlace, updatePlaceCoords } from "@/lib/api/places";
+import { getAllDescendants } from "@/lib/tree";
+import { AppEvent, emit } from "@/lib/events";
+import { currentParams, openModal, pushParams } from "@/lib/url";
+import type { Category, Place, Trip } from "@/lib/types";
 
 interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
+type PendingPlace = Pick<Place, "id" | "name" | "note">;
+
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  
+
   // Data states
-  const [trips, setTrips] = useState<any[]>([]);
-  const [categories, setCategories] = useState<any[]>([]);
+  const [trips, setTrips] = useState<Trip[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  
+
   // Selection states
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
 
   // State for places missing coordinates
-  const [pendingPlaces, setPendingPlaces] = useState<any[]>([]);
+  const [pendingPlaces, setPendingPlaces] = useState<PendingPlace[]>([]);
   // State to track which place is currently showing the delete confirmation
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
@@ -34,13 +42,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
   // Fetch pending places (separated so it can be re-used by the event listener)
   const fetchPendingPlaces = async () => {
-    const { data } = await supabase
-      .from("places")
-      .select("id, name, note")
-      .is("lat", null)
-      .order("created_at", { ascending: false });
-    
-    setPendingPlaces(data || []);
+    setPendingPlaces(await loadPendingPlaces());
   };
 
   // State to track the batch geocoding progress
@@ -74,7 +76,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           const nameWords = cleanQuery.toLowerCase().split(/\s+/).filter((w: string) => w.length > 2);
           
           const safeMatches = results.filter(match => {
-            const raw = match.raw as any;
+            const raw = match.raw as unknown as Record<string, unknown>;
             const isNotJustCity = raw.class !== 'boundary' && raw.class !== 'place';
             const hasTextMatch = nameWords.some((w: string) => match.label.toLowerCase().includes(w));
             return isNotJustCity && hasTextMatch;
@@ -83,12 +85,12 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           // STRICT RULE: Only save if exactly one match
           if (safeMatches.length === 1) {
             const bestMatch = safeMatches[0];
-            const { error } = await supabase.from("places").update({ lat: bestMatch.y, lng: bestMatch.x }).eq("id", place.id);
+            const { error } = await updatePlaceCoords(place.id, bestMatch.y, bestMatch.x);
 
             if (!error) {
               foundCount++;
               setPendingPlaces(prev => prev.filter(p => p.id !== place.id));
-              window.dispatchEvent(new Event("places-updated"));
+              emit(AppEvent.placesUpdated);
             }
           }
         }
@@ -112,11 +114,11 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
   // Execute actual deletion from the database
   const executeDeletePending = async (id: string) => {
-    const { error } = await supabase.from("places").delete().eq("id", id);
+    const { error } = await deletePlace(id);
     if (!error) {
       setPendingPlaces(prev => prev.filter(p => p.id !== id));
-      setDeleteConfirmId(null); 
-      window.dispatchEvent(new Event("places-updated"));
+      setDeleteConfirmId(null);
+      emit(AppEvent.placesUpdated);
     } else {
       alert("Błąd podczas usuwania.");
     }
@@ -124,7 +126,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
   // Unified filter updater for both trips and tags
   const applyFilters = (newTrips: Set<string>, newTags: Set<string>, currentTrips = trips, currentCats = categories) => {
-    const params = new URLSearchParams(window.location.search);
+    const params = currentParams();
 
     const selectedTripNames = Array.from(newTrips).map(id => currentTrips.find(t => t.id === id)?.name).filter(Boolean);
     if (selectedTripNames.length > 0) {
@@ -140,19 +142,15 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       params.delete("tags");
     }
 
-    router.push(`?${params.toString()}`, { scroll: false });
+    pushParams(router, params);
 
     // Dispatch event to map
     setTimeout(() => {
-      window.dispatchEvent(
-        new CustomEvent("filters-changed", {
-          detail: { 
-            isEmpty: selectedTripNames.length === 0, 
-            trips: selectedTripNames.join(","), 
-            tags: selectedTagNames.join(",") 
-          }
-        })
-      );
+      emit(AppEvent.filtersChanged, {
+        isEmpty: selectedTripNames.length === 0,
+        trips: selectedTripNames.join(","),
+        tags: selectedTagNames.join(","),
+      });
     }, 50);
   };
 
@@ -161,23 +159,15 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     const fetchFilters = async () => {
       setIsLoading(true);
 
-      const { data: tripsData } = await supabase.from("trips").select("*").order("created_at", { ascending: true });
-      const { data: catData } = await supabase.from("categories").select("*").order("name");
+      const tripsData = await fetchTrips();
+      const catData = await fetchCategories();
 
       // Fetch places that are missing coordinates (lat is NULL)
-      const { data: pendingData } = await supabase
-        .from("places")
-        .select("id, name, note")
-        .is("lat", null)
-        .order("created_at", { ascending: false });
-
-      if (pendingData) {
-        setPendingPlaces(pendingData);
-      }
+      setPendingPlaces(await loadPendingPlaces());
 
       if (tripsData) {
         setTrips(tripsData);
-        const urlTrips = new URLSearchParams(window.location.search).get("trips");
+        const urlTrips = currentParams().get("trips");
         if (urlTrips === "none") {
           setSelectedIds(new Set());
         } else if (urlTrips) {
@@ -191,7 +181,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
       if (catData) {
         setCategories(catData);
-        const urlTags = new URLSearchParams(window.location.search).get("tags");
+        const urlTags = currentParams().get("tags");
         if (urlTags) {
           const urlNames = urlTags.split(",");
           const matchedIds = catData.filter(c => urlNames.includes(c.name)).map(c => c.id);
@@ -203,13 +193,15 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     };
 
     fetchFilters();
+    // Async fetch-on-mount: setState runs after await, so cascading-render rule is a false positive here.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchPendingPlaces(); // Fetch pending places on initial load
 
     // Listeners for data updates
-    window.addEventListener("trips-updated", fetchFilters);
-    
+    window.addEventListener(AppEvent.tripsUpdated, fetchFilters);
+
     // Listen for place updates to refresh the pending list
-    window.addEventListener("places-updated", fetchPendingPlaces); 
+    window.addEventListener(AppEvent.placesUpdated, fetchPendingPlaces);
 
     // Ensure data is refetched immediately if the session loads with a delay
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
@@ -218,23 +210,13 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         fetchPendingPlaces();
       }
     });
-    
+
     return () => {
-      window.removeEventListener("trips-updated", fetchFilters);
-      window.removeEventListener("places-updated", fetchPendingPlaces);
+      window.removeEventListener(AppEvent.tripsUpdated, fetchFilters);
+      window.removeEventListener(AppEvent.placesUpdated, fetchPendingPlaces);
       authListener.subscription.unsubscribe();
     };
   }, []);
-
-  // Recursive function to get all descendants of a specific trip
-  const getAllDescendants = (parentId: string, allTrips: any[]): string[] => {
-    const children = allTrips.filter(t => t.parent_id === parentId);
-    let ids = children.map(c => c.id);
-    children.forEach(c => {
-      ids = [...ids, ...getAllDescendants(c.id, allTrips)];
-    });
-    return ids;
-  };
 
   // Toggle handler for trips
   const handleTripToggle = (tripId: string) => {
@@ -296,10 +278,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                   <button 
                     onClick={(e) => {
                       e.stopPropagation();
-                      const params = new URLSearchParams(window.location.search);
-                      params.set("modal", "share-trip");
-                      params.set("tripId", child.id);
-                      router.push(`?${params.toString()}`, { scroll: false });
+                      openModal(router, "share-trip", { tripId: child.id });
                     }}
                     className="flex items-center justify-center w-7 h-7 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded transition-colors text-base cursor-pointer"
                     title="Udostępnij wycieczkę"
@@ -310,10 +289,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                   <button 
                     onClick={(e) => {
                       e.stopPropagation();
-                      const params = new URLSearchParams(window.location.search);
-                      params.set("modal", "edit-trip");
-                      params.set("tripId", child.id);
-                      router.push(`?${params.toString()}`, { scroll: false });
+                      openModal(router, "edit-trip", { tripId: child.id });
                     }}
                     className="flex items-center justify-center w-7 h-7 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors text-sm cursor-pointer"
                     title="Edytuj"
@@ -415,10 +391,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                           className={`p-2.5 bg-white border rounded-lg shadow-sm flex justify-between items-center group cursor-pointer transition-colors ${deleteConfirmId === place.id ? 'border-red-300 bg-red-50' : 'border-amber-100 hover:border-amber-300'}`}
                           onClick={() => {
                             if (deleteConfirmId === place.id) return; // Prevent opening edit if confirming deletion
-                            const params = new URLSearchParams(window.location.search);
-                            params.set("modal", "edit-place");
-                            params.set("placeId", place.id);
-                            router.push(`?${params.toString()}`, { scroll: false });
+                            openModal(router, "edit-place", { placeId: place.id });
                           }}
                         >
                           <div className="flex flex-col overflow-hidden pr-2">
@@ -498,11 +471,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                 )}
                 
                 <button 
-                  onClick={() => {
-                    const params = new URLSearchParams(window.location.search);
-                    params.set("modal", "add-trip");
-                    router.push(`?${params.toString()}`, { scroll: false });
-                  }}
+                  onClick={() => openModal(router, "add-trip")}
                   className="w-full mt-3 py-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-sm font-bold rounded-lg transition-colors cursor-pointer shadow-sm"
                 >
                   + Nowy folder
@@ -546,11 +515,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                 </div>
 
                 <button 
-                  onClick={() => {
-                    const params = new URLSearchParams(window.location.search);
-                    params.set("modal", "manage-tags");
-                    router.push(`?${params.toString()}`, { scroll: false });
-                  }}
+                  onClick={() => openModal(router, "manage-tags")}
                   className="w-full py-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-sm font-bold rounded-lg transition-colors cursor-pointer shadow-sm flex items-center justify-center gap-2"
                 >
                   <span>⚙️</span> Zarządzaj tagami

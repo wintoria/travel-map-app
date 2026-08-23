@@ -2,18 +2,22 @@
 import React, { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { childrenOf } from "@/lib/tree";
+import { AppEvent, emit } from "@/lib/events";
+import { closeModal } from "@/lib/url";
+import type { Trip } from "@/lib/types";
 
 export default function EditTripModal() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  
+
   const modalType = searchParams.get("modal");
   const tripId = searchParams.get("tripId");
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [trip, setTrip] = useState<any>(null);
-  const [allTrips, setAllTrips] = useState<any[]>([]);
+  const [trip, setTrip] = useState<Trip | null>(null);
+  const [allTrips, setAllTrips] = useState<Trip[]>([]);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // Fetch current trip and all trips for the hierarchy dropdown
@@ -25,10 +29,10 @@ export default function EditTripModal() {
       setShowDeleteConfirm(false);
 
       const { data: currentTrip } = await supabase.from("trips").select("*").eq("id", tripId).single();
-      if (currentTrip) setTrip(currentTrip);
+      if (currentTrip) setTrip(currentTrip as Trip);
 
       const { data: tripsData } = await supabase.from("trips").select("id, name, parent_id, icon").order("created_at", { ascending: true });
-      if (tripsData) setAllTrips(tripsData);
+      if (tripsData) setAllTrips(tripsData as Trip[]);
 
       setIsLoading(false);
     };
@@ -36,12 +40,7 @@ export default function EditTripModal() {
     fetchData();
   }, [modalType, tripId]);
 
-  const handleClose = () => {
-    const params = new URLSearchParams(window.location.search);
-    params.delete("modal");
-    params.delete("tripId");
-    router.push(`?${params.toString()}`, { scroll: false });
-  };
+  const handleClose = () => closeModal(router, ["tripId"]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -62,8 +61,8 @@ export default function EditTripModal() {
       if (error) throw error;
 
       // Refresh Sidebar and map, then close
-      window.dispatchEvent(new Event("trips-updated"));
-      window.dispatchEvent(new Event("filters-changed"));
+      emit(AppEvent.tripsUpdated);
+      emit(AppEvent.filtersChanged);
       handleClose();
     } catch (error) {
       console.error("Update error:", error);
@@ -85,8 +84,8 @@ export default function EditTripModal() {
       alert("Nie można usunąć zakładki. Upewnij się, że nie zawiera innych podzakładek.");
       setIsSubmitting(false);
     } else {
-      window.dispatchEvent(new Event("trips-updated"));
-      window.dispatchEvent(new Event("filters-changed"));
+      emit(AppEvent.tripsUpdated);
+      emit(AppEvent.filtersChanged);
       handleClose();
     }
   };
@@ -95,8 +94,8 @@ export default function EditTripModal() {
 
   // Recursive dropdown options, disabling the current trip to prevent circular hierarchy
   const renderOptions = (parentId: string | null = null, level: number = 0) => {
-    const children = allTrips.filter((t) => (t.parent_id || null) === (parentId || null));
-    
+    const children = childrenOf(allTrips, parentId);
+
     return children.map((child) => {
       const isSelf = child.id === tripId;
       
@@ -137,7 +136,7 @@ export default function EditTripModal() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Ikona (emoji)</label>
-                <input type="text" name="icon" defaultValue={trip?.icon} maxLength={2} className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-blue-500 text-gray-800" />
+                <input type="text" name="icon" defaultValue={trip?.icon ?? ""} maxLength={2} className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-blue-500 text-gray-800" />
               </div>
 
               <div>

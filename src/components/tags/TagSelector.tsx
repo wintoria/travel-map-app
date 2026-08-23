@@ -1,52 +1,21 @@
 "use client";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-
-// Calculates color brightness. Handles hex and basic named colors from legacy DB entries.
-const getBrightness = (color: string) => {
-  if (!color) return 255;
-  
-  let str = color.trim().toLowerCase();
-  
-  // Handle manual color names that might be in the database
-  const colorMap: Record<string, string> = {
-    white: 'ffffff', black: '000000', red: 'ff0000', 
-    green: '008000', blue: '0000ff', yellow: 'ffff00',
-    orange: 'ffa500', purple: '800080', gray: '808080',
-    brown: 'a52a2a', cyan: '00ffff', lime: '00ff00'
-  };
-  
-  if (colorMap[str]) {
-    str = colorMap[str];
-  } else {
-    str = str.replace(/[^0-9a-f]/g, '');
-  }
-  
-  if (str.length === 3) str = str.split('').map(c => c + c).join('');
-  
-  // If parsing fails, default to 255 (forces dark text for safety)
-  if (str.length !== 6) return 255; 
-  
-  const r = parseInt(str.substring(0, 2), 16);
-  const g = parseInt(str.substring(2, 4), 16);
-  const b = parseInt(str.substring(4, 6), 16);
-  
-  return ((r * 299) + (g * 587) + (b * 114)) / 1000;
-};
+import { getBrightness, effectiveTagColor } from "@/lib/color";
+import { fetchCategories } from "@/lib/api/categories";
+import type { Category } from "@/lib/types";
 
 export default function TagSelector({ initialSelected = [] }: { initialSelected?: string[] }) {
-  const [categories, setCategories] = useState<any[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>(initialSelected);
   const [showNewForm, setShowNewForm] = useState(false);
-  
+
   const [newName, setNewName] = useState("");
   const [newIcon, setNewIcon] = useState("📌");
-  const [newColor, setNewColor] = useState("#93C5FD"); 
+  const [newColor, setNewColor] = useState("#93C5FD");
 
   useEffect(() => {
-    supabase.from("categories").select("*").order("name").then(({ data }) => {
-      if (data) setCategories(data);
-    });
+    fetchCategories().then(setCategories);
   }, []);
 
   const toggleCategory = (id: string) => {
@@ -91,8 +60,8 @@ export default function TagSelector({ initialSelected = [] }: { initialSelected?
           // Replace pure white hex or string "white" with light gray
           const rawColor = cat.color || '#ffffff';
           const isWhite = rawColor.toLowerCase().includes('ffffff') || rawColor.trim().toLowerCase() === 'white';
-          const effectiveColor = isWhite ? '#e5e7eb' : rawColor;
-            
+          const effectiveColor = effectiveTagColor(rawColor);
+
           const brightness = getBrightness(effectiveColor);
           
           return (

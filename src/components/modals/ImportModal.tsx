@@ -2,6 +2,19 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { AppEvent, emit } from "@/lib/events";
+
+// Shape of a Google Takeout GeoJSON feature (only the fields we read).
+interface ImportProps {
+  Title?: string; title?: string; name?: string;
+  Comment?: string; Note?: string; description?: string;
+  "Google Maps URL"?: string; url?: string;
+  Location?: { "Business Name"?: string; Address?: string };
+}
+interface ImportFeature {
+  geometry?: { coordinates?: number[] };
+  properties?: ImportProps;
+}
 
 export default function ImportModal() {
   const router = useRouter();
@@ -9,7 +22,7 @@ export default function ImportModal() {
   const modal = searchParams.get("modal");
   
   const [file, setFile] = useState<File | null>(null);
-  const [trips, setTrips] = useState<any[]>([]);
+  const [trips, setTrips] = useState<{ id: string; name: string }[]>([]);
   const [selectedTrip, setSelectedTrip] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ text: "", type: "" });
@@ -59,13 +72,13 @@ export default function ImportModal() {
     reader.onload = async (event) => {
       try {
         const content = event.target?.result as string;
-        let parsedData: any[] = [];
+        let parsedData: ImportFeature[] = [];
 
         if (file.name.endsWith(".json")) {
           // Parse JSON file (Google GeoJSON format)
           const jsonData = JSON.parse(content);
           parsedData = Array.isArray(jsonData) ? jsonData : (jsonData.features || [jsonData]);
-          
+
           // Map GeoJSON fields to our database schema
           const placesToInsert = parsedData.map(feature => {
             const lng = feature.geometry?.coordinates?.[0];
@@ -93,7 +106,7 @@ export default function ImportModal() {
           if (error) throw error;
           
           setMessage({ text: `Sukces! Zapisano ${placesToInsert.length} miejsc (JSON).`, type: "success" });
-          window.dispatchEvent(new Event("trips-updated"));
+          emit(AppEvent.tripsUpdated);
           
           // Auto-close modal
           setTimeout(() => closeModal(), 1500);
@@ -105,8 +118,8 @@ export default function ImportModal() {
           
           const parsedData = rows.slice(1).map(row => {
             // Split by comma, ignoring commas inside quotes
-            const values = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/); 
-            const obj: any = {};
+            const values = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+            const obj: Record<string, string> = {};
             headers.forEach((header, i) => {
               obj[header] = values[i] ? values[i].replace(/^"|"$/g, '').trim() : "";
             });
@@ -179,7 +192,7 @@ export default function ImportModal() {
             : `Sukces! Zaimportowano ${placesToInsert.length} miejsc.`;
           
           setMessage({ text: successMessage, type: "success" });
-          window.dispatchEvent(new Event("trips-updated"));
+          emit(AppEvent.tripsUpdated);
 
           setLoading(false);
           setFile(null);
@@ -193,9 +206,10 @@ export default function ImportModal() {
         } else {
           throw new Error("Obsługiwane są tylko pliki .json oraz .csv");
         }
-      } catch (error: any) {
+      } catch (error) {
         console.error("Import error:", error);
-        setMessage({ text: `Błąd importu: ${error.message || "Nieprawidłowy plik."}`, type: "error" });
+        const msg = error instanceof Error ? error.message : "Nieprawidłowy plik.";
+        setMessage({ text: `Błąd importu: ${msg}`, type: "error" });
         setLoading(false); // Stop loading only on error, so it doesn't flicker before auto-close
       }
     };
@@ -246,7 +260,7 @@ export default function ImportModal() {
           </div>
           
           <p className="text-xs text-gray-500">
-            Wybierz plik .json lub .csv z paczki Google Takeout (sekcja "Zapisane").
+            Wybierz plik .json lub .csv z paczki Google Takeout (sekcja &quot;Zapisane&quot;).
           </p>
 
           <div className="flex justify-end gap-3 mt-4">

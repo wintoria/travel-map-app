@@ -1,13 +1,13 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { MapContainer, TileLayer, Marker, Popup, AttributionControl, useMap, CircleMarker } from "react-leaflet";
+import { MapContainer, TileLayer, Popup, AttributionControl, useMap, CircleMarker } from "react-leaflet";
 import L from "leaflet";
 import MapSearch from "./MapSearch";
 import MapClickHandler from "./MapClickHandler";
 import PlacesMarkers from "./PlacesMarkers";
 
 // Fix for missing default marker icons in Next.js
-delete (L.Icon.Default.prototype as any)._getIconUrl;
+delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
   iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
@@ -65,7 +65,7 @@ function LocateControl() {
         </CircleMarker>
       )}
 
-      // Position top-right
+      {/* Position top-right */}
       <div className="leaflet-top leaflet-right">
         <div 
           ref={controlRef}
@@ -90,14 +90,6 @@ function LocateControl() {
     </>
   );
 }
-
-type Place = {
-  id: string;
-  name: string;
-  lat: number;
-  lng: number;
-  note: string;
-};
 
 export default function MapWidget() {
   // Coordinates for Szczecin

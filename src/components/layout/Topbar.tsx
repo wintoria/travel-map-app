@@ -1,4 +1,4 @@
-import GlobalSearch from "./GlobalSearch";
+import GlobalSearch from "@/components/search/GlobalSearch";
 import UserMenu from "./UserMenu";
 
 export default function Topbar() {

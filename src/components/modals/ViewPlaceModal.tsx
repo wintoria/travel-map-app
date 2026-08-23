@@ -2,34 +2,28 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { getContrastColor, effectiveTagColor } from "@/lib/color";
+import { deletePlace } from "@/lib/api/places";
+import { AppEvent, emit } from "@/lib/events";
+import { closeModal, openModal } from "@/lib/url";
+import type { Category, Place } from "@/lib/types";
 
-// Helper function to calculate text contrast for displaying tags
-const getContrastColor = (hexColor: string) => {
-  if (!hexColor) return '#000000';
-  let color = hexColor.trim().toLowerCase();
-  const namedColors: Record<string, string> = {
-    white: 'ffffff', black: '000000', red: 'ff0000', green: '008000', blue: '0000ff', 
-    yellow: 'ffff00', orange: 'ffa500', purple: '800080', gray: '808080', brown: 'a52a2a'
-  };
-  color = namedColors[color] || color.replace(/[^0-9a-f]/g, '');
-  if (color.length === 3) color = color.split('').map(c => c + c).join('');
-  if (color.length !== 6) return '#000000'; 
-  const r = parseInt(color.substring(0, 2), 16);
-  const g = parseInt(color.substring(2, 4), 16);
-  const b = parseInt(color.substring(4, 6), 16);
-  // Threshold set to 180 as requested
-  return ((r * 299 + g * 587 + b * 114) / 1000) > 180 ? '#000000' : '#ffffff';
+// Place row enriched with its trip and flattened tag list for display.
+type PlaceDetails = Place & {
+  trip?: { name: string; icon: string | null } | null;
+  tags?: Category[];
+  place_categories?: { categories: Category | null }[];
 };
 
 export default function ViewPlaceModal() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  
+
   // Get URL parameters
   const modalType = searchParams.get("modal");
   const placeId = searchParams.get("placeId");
 
-  const [place, setPlace] = useState<any>(null);
+  const [place, setPlace] = useState<PlaceDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
@@ -66,12 +60,12 @@ export default function ViewPlaceModal() {
         // Flatten categories array for easy rendering
         if (data.place_categories) {
           data.tags = data.place_categories
-            .map((pc: any) => pc.categories)
+            .map((pc: { categories: Category | null }) => pc.categories)
             .filter(Boolean)
-            .sort((a: any, b: any) => a.name.localeCompare(b.name));
+            .sort((a: Category, b: Category) => a.name.localeCompare(b.name));
         }
-        
-        setPlace(data);
+
+        setPlace(data as PlaceDetails);
       } else {
         console.error("Error fetching place details:", error);
       }
@@ -83,26 +77,17 @@ export default function ViewPlaceModal() {
   }, [modalType, placeId]);
 
   // Close modal by clearing URL parameters
-  const handleClose = () => {
-    const params = new URLSearchParams(window.location.search);
-    params.delete("modal");
-    params.delete("placeId");
-    router.push(`?${params.toString()}`, { scroll: false });
-  };
+  const handleClose = () => closeModal(router, ["placeId"]);
 
   // Delete place and notify map
   const handleDeleteConfirm = async () => {
+    if (!place) return;
     setIsLoading(true);
-    const { error } = await supabase.from("places").delete().eq("id", place.id);
+    const { error } = await deletePlace(place.id);
 
     if (!error) {
-      window.dispatchEvent(new Event("places-updated")); // Refresh map markers
-      
-      // Close modal quietly
-      const params = new URLSearchParams(window.location.search);
-      params.delete("modal");
-      params.delete("placeId");
-      router.push(`?${params.toString()}`, { scroll: false });
+      emit(AppEvent.placesUpdated); // Refresh map markers
+      handleClose(); // Close modal quietly
     } else {
       console.error("Delete error:", error);
       setIsLoading(false);
@@ -114,6 +99,7 @@ export default function ViewPlaceModal() {
 
   // Toggle the visited status directly from the view modal
   const handleToggleVisited = async () => {
+    if (!place) return;
     const newStatus = !place.visited;
     
     // Optimistic UI update (feels instant)
@@ -126,7 +112,7 @@ export default function ViewPlaceModal() {
       .eq("id", place.id);
 
     if (!error) {
-      window.dispatchEvent(new Event("places-updated"));
+      emit(AppEvent.placesUpdated);
     } else {
       // Revert if database fails
       setPlace({ ...place, visited: !newStatus });
@@ -182,11 +168,9 @@ export default function ViewPlaceModal() {
                 {/* Display Tags / Categories */}
                 {place.tags && place.tags.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 mt-3">
-                    {place.tags.map((tag: any) => {
-                      const rawColor = tag.color || '#ffffff';
-                      const isWhite = rawColor.toLowerCase().includes('ffffff') || rawColor.trim().toLowerCase() === 'white';
-                      const effectiveColor = isWhite ? '#e5e7eb' : rawColor; 
-                      
+                    {place.tags.map((tag: Category) => {
+                      const effectiveColor = effectiveTagColor(tag.color);
+
                       return (
                         <span 
                           key={tag.id}
@@ -280,11 +264,7 @@ export default function ViewPlaceModal() {
                 ) : (
                   <div className="flex gap-3">
                     <button 
-                      onClick={() => {
-                        const params = new URLSearchParams(window.location.search);
-                        params.set("modal", "edit-place");
-                        router.push(`?${params.toString()}`, { scroll: false });
-                      }}
+                      onClick={() => openModal(router, "edit-place")}
                       className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-800 font-medium py-2.5 rounded-lg transition-colors text-sm cursor-pointer"
                     >
                       Edytuj

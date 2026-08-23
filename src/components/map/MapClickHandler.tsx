@@ -1,12 +1,14 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
 import { useMapEvents, Marker, Popup } from "react-leaflet";
+import type { Marker as LeafletMarker } from "leaflet";
 import { useRouter, useSearchParams } from "next/navigation";
+import { openModal } from "@/lib/url";
 
 export default function MapClickHandler() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const markerRef = useRef<any>(null);
+  const markerRef = useRef<LeafletMarker>(null);
   
   // State to hold the clicked location and fetched data
   const [clickData, setClickData] = useState<{lat: number, lng: number, name: string, address: string} | null>(null);
@@ -71,15 +73,14 @@ export default function MapClickHandler() {
     e.stopPropagation(); // Prevent click from passing through to the map (prevents placing a new pin underneath)
     if (!clickData) return;
     
-    const params = new URLSearchParams(window.location.search);
-    params.set("modal", "add-place");
-    params.set("lat", clickData.lat.toFixed(6));
-    params.set("lng", clickData.lng.toFixed(6));
-    
-    if (clickData.name) params.set("name", clickData.name);
-    if (clickData.address) params.set("address", clickData.address);
-    
-    router.push(`?${params.toString()}`, { scroll: false });
+    const extra: Record<string, string> = {
+      lat: clickData.lat.toFixed(6),
+      lng: clickData.lng.toFixed(6),
+    };
+    if (clickData.name) extra.name = clickData.name;
+    if (clickData.address) extra.address = clickData.address;
+
+    openModal(router, "add-place", extra);
     setClickData(null); // Hide the pin once modal opens
   };
 

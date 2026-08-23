@@ -2,15 +2,19 @@
 import React, { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { childrenOf } from "@/lib/tree";
+import { AppEvent, emit } from "@/lib/events";
+import { closeModal } from "@/lib/url";
+import type { Trip } from "@/lib/types";
 
 export default function AddTripModal() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  
+
   const modalType = searchParams.get("modal");
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [trips, setTrips] = useState<any[]>([]);
+  const [trips, setTrips] = useState<Trip[]>([]);
 
   // Fetch all folders to build hierarchy in the dropdown
   useEffect(() => {
@@ -23,18 +27,14 @@ export default function AddTripModal() {
         .order("created_at", { ascending: true });
         
       if (!error && data) {
-        setTrips(data);
+        setTrips(data as Trip[]);
       }
     };
 
     fetchAllTrips();
   }, [modalType]);
 
-  const handleClose = () => {
-    const params = new URLSearchParams(window.location.search);
-    params.delete("modal");
-    router.push(`?${params.toString()}`, { scroll: false });
-  };
+  const handleClose = () => closeModal(router);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -55,7 +55,7 @@ export default function AddTripModal() {
       if (error) throw error;
 
       // Close modal and dispatch event to refresh the Sidebar
-      window.dispatchEvent(new Event("trips-updated"));
+      emit(AppEvent.tripsUpdated);
       handleClose();
 
     } catch (error) {
@@ -71,8 +71,8 @@ export default function AddTripModal() {
   // Foolproof recursive function to build infinite dropdown nesting
   const renderOptions = (parentId: string | null = null, level: number = 0) => {
     // Treat undefined and null as the same root level
-    const children = trips.filter((t) => (t.parent_id || null) === (parentId || null));
-    
+    const children = childrenOf(trips, parentId);
+
     return children.map((child) => (
       <React.Fragment key={child.id}>
         <option value={child.id} className={level === 0 ? "font-bold" : ""}>

@@ -1,6 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { AppEvent, emit } from "@/lib/events";
+import { currentParams, pushParams } from "@/lib/url";
 
 export default function GlobalSearch() {
   const router = useRouter();
@@ -11,18 +13,18 @@ export default function GlobalSearch() {
   // Debounce logic: wait 300ms before pushing to URL
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      const params = new URLSearchParams(window.location.search);
-      
+      const params = currentParams();
+
       if (query.trim()) {
         params.set("q", query.trim());
       } else {
         params.delete("q");
       }
 
-      router.push(`?${params.toString()}`, { scroll: false });
-      
+      pushParams(router, params);
+
       // Notify map and list immediately without waiting for Next.js router
-      window.dispatchEvent(new CustomEvent("search-changed", { detail: { query: query.trim() } }));
+      emit(AppEvent.searchChanged, { query: query.trim() });
     }, 300);
 
     return () => clearTimeout(timeoutId);

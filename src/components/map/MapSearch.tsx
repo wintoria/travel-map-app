@@ -2,23 +2,28 @@
 import { useEffect, useState, useRef } from "react";
 import { useMap, Marker, Popup } from "react-leaflet";
 import { GeoSearchControl, OpenStreetMapProvider } from "leaflet-geosearch";
+import type { Marker as LeafletMarker, LeafletEvent } from "leaflet";
 import { useRouter } from "next/navigation";
+import { openModal } from "@/lib/url";
 import "leaflet-geosearch/dist/geosearch.css";
+
+// A geosearch result location, normalized to numeric coordinates.
+type SearchLocation = { x: number; y: number; label: string };
 
 export default function MapSearch() {
   // Access the Leaflet map instance
   const map = useMap();
   const router = useRouter();
   // Ref to programmatically control the popup
-  const markerRef = useRef<any>(null);
-  const [searchResult, setSearchResult] = useState<any>(null);
+  const markerRef = useRef<LeafletMarker>(null);
+  const [searchResult, setSearchResult] = useState<SearchLocation | null>(null);
 
   useEffect(() => {
     // Initialize the OpenStreetMap search provider
     const provider = new OpenStreetMapProvider();
 
     // Configure the search control
-    // @ts-ignore
+    // @ts-expect-error - GeoSearchControl constructor options are loosely typed upstream
     const searchControl = new GeoSearchControl({
       provider: provider,
       style: "bar",
@@ -43,12 +48,16 @@ export default function MapSearch() {
     }, 100);
 
     // Listen for the event when a user selects a place
-    const handleLocation = (result: any) => {
+    const handleLocation = (event: LeafletEvent) => {
+      // The geosearch event carries a `location` payload not present on the base LeafletEvent type.
+      const { location } = event as unknown as {
+        location: { x: number | string; y: number | string; label: string };
+      };
       // Force coordinates to be numbers (Nominatim sometimes returns strings)
-      const safeLocation = {
-        ...result.location,
-        x: parseFloat(result.location.x),
-        y: parseFloat(result.location.y)
+      const safeLocation: SearchLocation = {
+        label: location.label,
+        x: parseFloat(String(location.x)),
+        y: parseFloat(String(location.y)),
       };
       setSearchResult(safeLocation);
     };
@@ -80,17 +89,14 @@ export default function MapSearch() {
     e.stopPropagation(); // Prevent map click from passing through
     if (!searchResult) return;
     
-    const params = new URLSearchParams(window.location.search);
-    params.set("modal", "add-place");
-    params.set("lat", searchResult.y);
-    params.set("lng", searchResult.x);
-    
-    // Pass the name, the full address, and the flag to lock the name field
-    params.set("name", searchResult.label.split(",")[0]); 
-    params.set("address", searchResult.label);
-    params.set("lockedName", "true"); 
-    
-    router.push(`?${params.toString()}`, { scroll: false });
+    openModal(router, "add-place", {
+      lat: String(searchResult.y),
+      lng: String(searchResult.x),
+      // Pass the name, the full address, and the flag to lock the name field
+      name: searchResult.label.split(",")[0],
+      address: searchResult.label,
+      lockedName: "true",
+    });
     setSearchResult(null); // Remove search pin after opening modal
   };
 
