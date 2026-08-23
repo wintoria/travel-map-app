@@ -145,6 +145,29 @@ export default function ImportModal() {
              throw new Error("Brak danych w pliku CSV.");
           }
 
+          // Fetch existing places in this folder that already have valid coordinates
+          const { data: existingPlaces } = await supabase
+            .from("places")
+            .select("name, google_maps_url, lat, lng")
+            .eq("trip_id", selectedTrip)
+            .not("lat", "is", null);
+
+          if (existingPlaces && existingPlaces.length > 0) {
+            placesToInsert.forEach(newPlace => {
+              // Find a match based on Google Maps URL or exact Name
+              const match = existingPlaces.find(ep => 
+                (newPlace.google_maps_url && ep.google_maps_url === newPlace.google_maps_url) || 
+                (ep.name === newPlace.name)
+              );
+              
+              // If we have a match and the incoming file has no coordinates, restore them!
+              if (match && newPlace.lat === null) {
+                newPlace.lat = match.lat;
+                newPlace.lng = match.lng;
+              }
+            });
+          }
+
           // Perform UPSERT to database
           const { error } = await supabase.from("places").upsert(placesToInsert, { onConflict: "trip_id, google_maps_url", ignoreDuplicates: false });
           if (error) throw error;

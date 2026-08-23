@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter, useSearchParams } from "next/navigation";
+import { OpenStreetMapProvider } from "leaflet-geosearch";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -41,6 +42,89 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     } else {
       alert("Błąd podczas usuwania.");
     }
+  };
+
+  // State to track the batch geocoding progress
+  const [geocodeProgress, setGeocodeProgress] = useState({ 
+    isRunning: false, 
+    current: 0, 
+    total: 0, 
+    found: 0 
+  });
+
+  // State for the beautiful inline summary message
+  const [geocodeSummary, setGeocodeSummary] = useState<string | null>(null);
+
+  // Batch process to find coordinates for pending places
+  const handleBatchGeocode = async () => {
+    if (geocodeProgress.isRunning || pendingPlaces.length === 0) return;
+    
+    setGeocodeSummary(null); // Clear previous summary
+    const placesToProcess = [...pendingPlaces];
+    setGeocodeProgress({ isRunning: true, current: 0, total: placesToProcess.length, found: 0 });
+    
+    const provider = new OpenStreetMapProvider();
+    let foundCount = 0;
+
+    for (let i = 0; i < placesToProcess.length; i++) {
+      const place = placesToProcess[i];
+      setGeocodeProgress(prev => ({ ...prev, current: i + 1 }));
+
+      try {
+        // 1. Fetch data from OpenStreetMap (clean query only)
+        const cleanQuery = place.name.replace(/[^\w\s\u0100-\u024F]/gi, '').trim();
+        const results = await provider.search({ query: cleanQuery });
+
+        if (results && results.length > 0) {
+          const nameWords = cleanQuery.toLowerCase().split(/\s+/).filter((w: string) => w.length > 2);
+          
+          // 2. Filter results through our safety checks FIRST
+          const safeMatches = results.filter(match => {
+            const raw = match.raw as any;
+            const isNotJustCity = raw.class !== 'boundary' && raw.class !== 'place';
+            const hasTextMatch = nameWords.some((w: string) => match.label.toLowerCase().includes(w));
+            return isNotJustCity && hasTextMatch;
+          });
+
+          // 3. STRICT RULE: Only save if there is exactly one safe match
+          if (safeMatches.length === 1) {
+            const bestMatch = safeMatches[0];
+            
+            // SAFE MATCH: Update database
+            const { error } = await supabase
+              .from("places")
+              .update({ lat: bestMatch.y, lng: bestMatch.x })
+              .eq("id", place.id);
+
+            if (!error) {
+              foundCount++;
+              // Remove successfully located place from the pending list immediately
+              setPendingPlaces(prev => prev.filter(p => p.id !== place.id));
+              window.dispatchEvent(new Event("places-updated"));
+            }
+          } else {
+            // UNSAFE MATCH: 0 matches or multiple matches (ambiguous)
+            console.log(`Unsafe match for: ${place.name} (Found ${safeMatches.length} safe candidates) - keeping as pending.`);
+          }
+        }
+      } catch (err) {
+        // TEMPORARY ERROR (e.g. network timeout): Safely ignore and continue
+        console.error(`Geocoding error for ${place.name}`, err);
+      }
+
+      // 4. RATE LIMITING (Strict 1.5s delay to comply with Nominatim rules)
+      if (i < placesToProcess.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 1500));
+      }
+    }
+
+    // Finish process and show summary inline
+    setGeocodeProgress({ isRunning: false, current: 0, total: 0, found: 0 });
+    setGeocodeSummary(`Zakończono! Znaleziono automatycznie: ${foundCount} z ${placesToProcess.length}.\nReszta (${placesToProcess.length - foundCount}) wymaga ręcznego uzupełnienia.`);
+    // Auto-hide the summary message
+    setTimeout(() => {
+      setGeocodeSummary(null);
+    }, 6000);
   };
 
   // Unified filter updater for both trips and tags
@@ -279,15 +363,39 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
               
               {isPendingOpen && (
                 <div className="p-3 space-y-2">
+                  
+                  {/* Smart Progress Button */}
                   <button 
-                    onClick={() => {
-                      // Placeholder for the future Geosearch batch process
-                      alert("Automatyczne wyszukiwanie wdrożymy w kolejnym kroku!");
-                    }}
-                    className="w-full py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-bold rounded-lg transition-colors cursor-pointer shadow-sm flex items-center justify-center gap-2 mb-3"
+                    onClick={handleBatchGeocode}
+                    disabled={geocodeProgress.isRunning}
+                    className={`w-full py-2 text-white text-sm font-bold rounded-lg transition-all shadow-sm flex flex-col items-center justify-center gap-1 mb-3 ${
+                      geocodeProgress.isRunning ? "bg-amber-400 cursor-wait" : "bg-amber-500 hover:bg-amber-600 cursor-pointer"
+                    }`}
                   >
-                    <span>▶</span> Szukaj automatycznie
+                    {geocodeProgress.isRunning ? (
+                      <>
+                        <div className="flex items-center gap-2">
+                          <span className="animate-spin text-lg leading-none">⏳</span>
+                          <span>Przeszukiwanie bazy...</span>
+                        </div>
+                        <span className="text-xs font-medium opacity-90">
+                          {geocodeProgress.current} / {geocodeProgress.total} (Znaleziono: {geocodeProgress.found})
+                        </span>
+                      </>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <span>▶</span> <span>Szukaj automatycznie</span>
+                      </div>
+                    )}
                   </button>
+
+                  {/* Beautiful inline summary instead of system alert */}
+                  {geocodeSummary && (
+                    <div className="bg-green-50 border border-green-200 text-green-800 p-3 rounded-lg text-xs font-medium mb-3 flex justify-between items-start shadow-sm animate-in fade-in zoom-in duration-200">
+                      <span className="whitespace-pre-wrap">{geocodeSummary}</span>
+                      <button onClick={() => setGeocodeSummary(null)} className="text-green-600 hover:text-green-900 ml-2 cursor-pointer text-sm leading-none">✕</button>
+                    </div>
+                  )}
 
                   <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
                     {pendingPlaces.map(place => (
