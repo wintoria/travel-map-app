@@ -10,6 +10,10 @@ export const metadata: Metadata = {
   description: "Nasza prywatna mapa podróży",
   // Add the manifest for PWA support
   manifest: "/manifest.json",
+  icons: {
+    icon: "/icon-512x512.png",
+    apple: "/icon-512x512.png",
+  },
 };
 
 export const viewport = {
