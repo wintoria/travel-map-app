@@ -8,6 +8,12 @@ import AuthWrapper from "@/components/AuthWrapper";
 export const metadata: Metadata = {
   title: "Travel Map App",
   description: "Nasza prywatna mapa podróży",
+  // Add the manifest for PWA support
+  manifest: "/manifest.json",
+};
+
+export const viewport = {
+  themeColor: "#2563eb",
 };
 
 export default function RootLayout({

@@ -1,0 +1,19 @@
+{
+  "name": "Travel Map App",
+  "short_name": "TravelMap",
+  "description": "Mapa podróży",
+  "theme_color": "#2563eb",
+  "background_color": "#f9fafb",
+  "display": "standalone",
+  "orientation": "portrait",
+  "scope": "/",
+  "start_url": "/",
+  "icons": [
+    {
+      "src": "/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
