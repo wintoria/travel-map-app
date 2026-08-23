@@ -210,10 +210,19 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     
     // Listen for place updates to refresh the pending list
     window.addEventListener("places-updated", fetchPendingPlaces); 
+
+    // Ensure data is refetched immediately if the session loads with a delay
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session) {
+        fetchFilters();
+        fetchPendingPlaces();
+      }
+    });
     
     return () => {
       window.removeEventListener("trips-updated", fetchFilters);
       window.removeEventListener("places-updated", fetchPendingPlaces);
+      authListener.subscription.unsubscribe();
     };
   }, []);
 
