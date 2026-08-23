@@ -11,7 +11,8 @@ const withSerwist = withSerwistInit({
 });
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Silence Turbopack warnings and worker errors
+  turbopack: {},
 };
 
 export default withSerwist(nextConfig);

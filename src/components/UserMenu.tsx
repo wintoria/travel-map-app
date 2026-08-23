@@ -6,6 +6,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 export default function UserMenu() {
   const [isOpen, setIsOpen] = useState(false);
   const [email, setEmail] = useState("");
+  // State to hold the PWA install event
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -24,10 +26,32 @@ export default function UserMenu() {
         setIsOpen(false);
       }
     };
+
+    // Capture the PWA install prompt event
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
     
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+    
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+    };
   }, []);
+
+  // Trigger the native install prompt
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setDeferredPrompt(null); // Hide button after successful install
+    }
+    setIsOpen(false);
+  };
 
   return (
     <div className="relative" ref={menuRef}>
@@ -47,6 +71,15 @@ export default function UserMenu() {
           </div>
           
           <div className="p-2 flex flex-col gap-1">
+            {/* PWA Install Button (visible only when ready) */}
+            {deferredPrompt && (
+              <button 
+                onClick={handleInstallClick}
+                className="flex items-center gap-3 w-full px-3 py-2 text-sm font-bold text-blue-600 hover:bg-blue-50 rounded-md transition-colors text-left cursor-pointer"
+              >
+                <span>📱</span> Zainstaluj aplikację
+              </button>
+            )}
             <button 
               onClick={() => {
                 setIsOpen(false);
