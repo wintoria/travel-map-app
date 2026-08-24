@@ -1,6 +1,9 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Modal from "@/components/ui/Modal";
+import Button from "@/components/ui/Button";
+import IconPicker from "@/components/tags/IconPicker";
 import { childrenOf } from "@/lib/tree";
 import { AppEvent, emit } from "@/lib/events";
 import { closeModal } from "@/lib/url";
@@ -20,6 +23,7 @@ export default function AddTripModal() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [trips, setTrips] = useState<TripOption[]>([]);
+  const [icon, setIcon] = useState("");
 
   // Fetch all folders to build hierarchy in the dropdown
   useEffect(() => {
@@ -69,7 +73,7 @@ export default function AddTripModal() {
     return children.map((child) => (
       <React.Fragment key={child.id}>
         <option value={child.id} className={level === 0 ? "font-bold" : ""}>
-          {"\u00A0\u00A0\u00A0".repeat(level)}
+          {"   ".repeat(level)}
           {level > 0 ? "└ " : ""}
           {child.name}
         </option>
@@ -80,54 +84,37 @@ export default function AddTripModal() {
   };
 
   return (
-    <div className="fixed inset-0 z-[70] bg-black/50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden flex flex-col">
-        
-        <div className="flex justify-between items-center p-4 border-b border-gray-100">
-          <h2 className="text-lg font-bold text-gray-800">Nowa zakładka</h2>
-          <button onClick={handleClose} className="text-gray-400 hover:text-gray-800 text-xl font-bold cursor-pointer">
-            ✕
-          </button>
+    <Modal onClose={handleClose} title="Nowa zakładka" maxWidth="max-w-sm" zIndex="z-[70]">
+      <form onSubmit={handleSubmit} className="p-5 flex flex-col space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-base-content/80 mb-1">Nazwa *</label>
+          <input type="text" name="name" required placeholder="np. Wakacje 2026" className="input input-bordered w-full bg-base-100 border-base-300 text-base-content focus:border-primary" />
         </div>
 
-        <form onSubmit={handleSubmit} className="p-5 flex flex-col space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Nazwa *</label>
-            <input type="text" name="name" required placeholder="np. Wakacje 2026" className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-blue-500 text-gray-800" />
-          </div>
+        <div>
+          <label className="block text-sm font-medium text-base-content/80 mb-1">Ikona</label>
+          <input type="hidden" name="icon" value={icon} />
+          <IconPicker value={icon} onChange={setIcon} />
+        </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Ikona (emoji)</label>
-            <input type="text" name="icon" placeholder="np. 🗺️" maxLength={2} className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-blue-500 text-gray-800" />
-          </div>
+        <div>
+          <label className="block text-sm font-medium text-base-content/80 mb-1">Folder nadrzędny (opcjonalnie)</label>
+          <select name="parentId" className="select select-bordered w-full bg-base-100 border-base-300 text-base-content">
+            <option value="">-- Brak (Katalog główny) --</option>
+            {renderOptions(null, 0)}
+          </select>
+          <p className="text-xs text-muted mt-1">Możesz zagnieżdżać zakładki nieskończenie (np. Wakacje -&gt; Holandia -&gt; Amsterdam).</p>
+        </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Folder nadrzędny (opcjonalnie)</label>
-            <select name="parentId" className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-blue-500 text-gray-800 bg-white">
-              <option value="">-- Brak (Katalog główny) --</option>
-              {renderOptions(null, 0)}
-            </select>
-            <p className="text-xs text-gray-500 mt-1">Możesz zagnieżdżać zakładki nieskończenie (np. Wakacje -&gt; Holandia -&gt; Amsterdam).</p>
-          </div>
-
-          <div className="pt-2 flex gap-3">
-            <button 
-              type="button" 
-              onClick={handleClose}
-              className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold py-2.5 rounded-lg transition-colors cursor-pointer"
-            >
-              Anuluj
-            </button>
-            <button 
-              type="submit" 
-              disabled={isSubmitting} 
-              className="flex-[2] bg-blue-600 text-white font-bold py-2.5 rounded-lg hover:bg-blue-700 transition-colors disabled:bg-blue-400 cursor-pointer"
-            >
-              {isSubmitting ? "Zapisywanie..." : "Dodaj zakładkę"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <div className="pt-2 flex gap-3">
+          <Button type="button" variant="secondary" onClick={handleClose} className="flex-1">
+            Anuluj
+          </Button>
+          <Button type="submit" variant="primary" disabled={isSubmitting} className="flex-[2]">
+            {isSubmitting ? "Zapisywanie..." : "Dodaj zakładkę"}
+          </Button>
+        </div>
+      </form>
+    </Modal>
   );
 }

@@ -117,7 +117,7 @@ export default function MapSearch() {
       <Popup maxWidth={220}>
         <div className="text-center">
           <p className="font-bold text-sm m-0 leading-tight mt-1">{title}</p>
-          <p className="text-[11px] text-gray-500 mt-1 mb-2 truncate" title={subtitle}>
+          <p className="text-[11px] text-muted mt-1 mb-2 truncate" title={subtitle}>
             {subtitle}
           </p>
           
@@ -129,15 +129,15 @@ export default function MapSearch() {
                 e.stopPropagation();
                 setSearchResult(null); // Remove temporary pin
               }}
-              className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg text-sm font-medium flex-1 transition-colors cursor-pointer"
+              className="bg-base-300 hover:bg-base-300/70 text-base-content px-3 py-1.5 rounded-lg text-sm font-medium flex-1 transition-colors cursor-pointer"
             >
               Odznacz
             </button>
 
             {/* Save button */}
-            <button 
+            <button
               onClick={handlePinClick}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium flex-1 transition-colors cursor-pointer"
+              className="bg-primary hover:bg-primary/90 text-primary-content px-3 py-1.5 rounded-lg text-sm font-medium flex-1 transition-colors cursor-pointer"
             >
               Zapisz
             </button>

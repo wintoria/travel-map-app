@@ -1,6 +1,8 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Modal from "@/components/ui/Modal";
+import Button from "@/components/ui/Button";
 import { supabase } from "@/lib/supabase";
 import { AppEvent, emit } from "@/lib/events";
 import { bulkUpsertPlaces } from "@/lib/api/places";
@@ -21,7 +23,7 @@ export default function ImportModal() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const modal = searchParams.get("modal");
-  
+
   const [file, setFile] = useState<File | null>(null);
   const [trips, setTrips] = useState<{ id: string; name: string }[]>([]);
   const [selectedTrip, setSelectedTrip] = useState("");
@@ -52,7 +54,7 @@ export default function ImportModal() {
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
-    
+
     const params = new URLSearchParams(searchParams.toString());
     params.delete("modal");
     router.push(`/?${params.toString()}`, { scroll: false });
@@ -99,7 +101,7 @@ export default function ImportModal() {
               trip_id: selectedTrip,
               name: placeName,
               google_maps_url: placeUrl,
-              note: placeNote, 
+              note: placeNote,
               lat: lat,
               lng: lng,
               address: props.Location?.Address || ""
@@ -109,18 +111,18 @@ export default function ImportModal() {
           // Perform UPSERT to database
           const { error } = await bulkUpsertPlaces(placesToInsert, "trip_id, google_maps_url");
           if (error) throw error;
-          
+
           setMessage({ text: `Sukces! Zapisano ${placesToInsert.length} miejsc (JSON).`, type: "success" });
           emit(AppEvent.tripsUpdated);
-          
+
           // Auto-close modal
           setTimeout(() => closeModal(), 1500);
-          
+
         } else if (file.name.endsWith(".csv")) {
           // Parse CSV format from Google Takeout
           const rows = content.split('\n').filter(row => row.replace(/,/g, '').trim().length > 0);
           const headers = rows[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
-          
+
           const parsedData = rows.slice(1).map(row => {
             // Split by comma, ignoring commas inside quotes
             const values = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
@@ -136,7 +138,7 @@ export default function ImportModal() {
             const placeName = props.Title || props.title || props.Name || props.name || props.Tytuł || props.tytuł || "Zapisane miejsce";
             const placeNote = props.Comment || props.Note || props.note || props.Notatka || props.notatka || "";
             const placeUrl = props.URL || props.url || props['Google Maps URL'] || null;
-            
+
             // Extract coordinates if they are hidden inside the URL
             let lat = null;
             let lng = null;
@@ -152,7 +154,7 @@ export default function ImportModal() {
               trip_id: selectedTrip,
               name: placeName,
               google_maps_url: placeUrl,
-              note: placeNote, 
+              note: placeNote,
               lat: lat,
               lng: lng, // Sending null if no coordinates found
               address: ""
@@ -173,11 +175,11 @@ export default function ImportModal() {
           if (existingPlaces && existingPlaces.length > 0) {
             placesToInsert.forEach(newPlace => {
               // Find a match based on Google Maps URL or exact Name
-              const match = existingPlaces.find(ep => 
-                (newPlace.google_maps_url && ep.google_maps_url === newPlace.google_maps_url) || 
+              const match = existingPlaces.find(ep =>
+                (newPlace.google_maps_url && ep.google_maps_url === newPlace.google_maps_url) ||
                 (ep.name === newPlace.name)
               );
-              
+
               // If we have a match and the incoming file has no coordinates, restore them!
               if (match && newPlace.lat === null) {
                 newPlace.lat = match.lat;
@@ -189,13 +191,13 @@ export default function ImportModal() {
           // Perform UPSERT to database
           const { error } = await bulkUpsertPlaces(placesToInsert, "trip_id, google_maps_url");
           if (error) throw error;
-          
+
           // Calculate how many places are missing coordinates for the success message
           const missingCoordsCount = placesToInsert.filter(p => p.lat === null).length;
-          const successMessage = missingCoordsCount > 0 
-            ? `Sukces! Zaimportowano ${placesToInsert.length} miejsc. (${missingCoordsCount} do uzupełnienia)` 
+          const successMessage = missingCoordsCount > 0
+            ? `Sukces! Zaimportowano ${placesToInsert.length} miejsc. (${missingCoordsCount} do uzupełnienia)`
             : `Sukces! Zaimportowano ${placesToInsert.length} miejsc.`;
-          
+
           setMessage({ text: successMessage, type: "success" });
           emit(AppEvent.tripsUpdated);
 
@@ -204,7 +206,7 @@ export default function ImportModal() {
           if (fileInputRef.current) {
             fileInputRef.current.value = "";
           }
-          
+
           // Auto-close modal
           setTimeout(() => closeModal(), 4000);
 
@@ -223,28 +225,23 @@ export default function ImportModal() {
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-6 animate-in fade-in zoom-in-95 duration-200">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-bold text-gray-800">Import z Google Maps</h2>
-          <button onClick={closeModal} className="text-gray-400 hover:text-gray-600 cursor-pointer">✕</button>
-        </div>
-
+    <Modal onClose={closeModal} title="Import z Google Maps" maxWidth="max-w-md" zIndex="z-[60]">
+      <div className="p-6">
         {message.text && (
-          <div className={`p-3 rounded-lg text-sm mb-4 font-medium border ${message.type === 'error' ? 'bg-red-50 text-red-600 border-red-100' : 'bg-green-50 text-green-600 border-green-100'}`}>
+          <div className={`p-3 rounded-lg text-sm mb-4 font-medium border ${message.type === 'error' ? 'bg-error/15 text-error border-error/40' : 'bg-success/15 text-success border-success/40'}`}>
             {message.text}
           </div>
         )}
 
         <form onSubmit={handleImport} className="flex flex-col gap-4">
-          
+
           {/* Target Folder Selection */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Do jakiego folderu zapisać?</label>
-            <select 
+            <label className="block text-sm font-medium text-base-content/80 mb-1">Do jakiego folderu zapisać?</label>
+            <select
               value={selectedTrip}
               onChange={(e) => setSelectedTrip(e.target.value)}
-              className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500"
+              className="select select-bordered w-full bg-base-100 border-base-300 text-base-content"
               required
             >
               <option value="" disabled>Wybierz folder...</option>
@@ -254,30 +251,30 @@ export default function ImportModal() {
             </select>
           </div>
 
-          <div className="p-4 border-2 border-dashed border-gray-300 rounded-xl bg-gray-50 text-center">
-            <input 
+          <div className="p-4 border-2 border-dashed border-base-300 rounded-xl bg-base-100 text-center">
+            <input
               ref={fileInputRef}
-              type="file" 
+              type="file"
               accept=".json,.csv"
               onChange={(e) => setFile(e.target.files?.[0] || null)}
-              className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
+              className="w-full text-sm text-base-content/60 file:mr-4 file:py-2 file:px-4 file:font-bold file:bg-primary/15 file:text-primary file:border-0 file:rounded-full hover:file:bg-primary/25 cursor-pointer"
             />
           </div>
-          
-          <p className="text-xs text-gray-500">
+
+          <p className="text-xs text-muted">
             Wybierz plik .json lub .csv z paczki Google Takeout (sekcja &quot;Zapisane&quot;).
           </p>
 
           <div className="flex justify-end gap-3 mt-4">
-            <button type="button" onClick={closeModal} className="px-4 py-2 text-gray-600 font-medium hover:bg-gray-100 rounded-lg transition-colors cursor-pointer">
+            <Button type="button" variant="ghost" onClick={closeModal} className="px-4">
               Anuluj
-            </button>
-            <button type="submit" disabled={!file || !selectedTrip || loading} className="px-4 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-colors shadow-sm disabled:bg-blue-400 cursor-pointer">
+            </Button>
+            <Button type="submit" variant="primary" disabled={!file || !selectedTrip || loading} className="px-4">
               {loading ? "Importowanie..." : "Importuj"}
-            </button>
+            </Button>
           </div>
         </form>
       </div>
-    </div>
+    </Modal>
   );
 }

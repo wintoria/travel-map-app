@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { Loader2 } from "lucide-react";
 import { useOnlineStatus } from "@/lib/offline/network";
 import { getPendingCount } from "@/lib/offline/sync";
 import { AppEvent } from "@/lib/events";
@@ -23,13 +24,13 @@ export default function SyncStatusIndicator() {
   return (
     <div className="flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full shrink-0 mr-2">
       {!isOnline && (
-        <span className="bg-amber-100 text-amber-800 border border-amber-200 px-2 py-1 rounded-full">
+        <span className="bg-warning/20 text-warning border border-warning/40 px-2 py-1 rounded-full">
           Offline
         </span>
       )}
       {pending > 0 && (
-        <span className="bg-blue-50 text-blue-700 border border-blue-100 px-2 py-1 rounded-full">
-          ⏳ {pending} do synchronizacji
+        <span className="flex items-center gap-1 bg-info/20 text-info border border-info/30 px-2 py-1 rounded-full">
+          <Loader2 size={14} className="animate-spin" /> {pending} do synchronizacji
         </span>
       )}
     </div>

@@ -5,15 +5,10 @@ import type { Marker as LeafletMarker } from "leaflet";
 import { useRouter, useSearchParams } from "next/navigation";
 import { openModal } from "@/lib/url";
 
-// Hold the map down this long to drop a pin — a plain click no longer opens "add place", so
-// panning/tapping the map doesn't accidentally trigger it.
-const LONG_PRESS_MS = 500;
-
 export default function MapClickHandler() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const markerRef = useRef<LeafletMarker>(null);
-  const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // State to hold the clicked location and fetched data
   const [clickData, setClickData] = useState<{lat: number, lng: number, name: string, address: string} | null>(null);
@@ -53,31 +48,14 @@ export default function MapClickHandler() {
     }
   };
 
-  const clearPressTimer = () => {
-    if (pressTimer.current) {
-      clearTimeout(pressTimer.current);
-      pressTimer.current = null;
-    }
-  };
-
-  // Hook into map events and get the map instance
+  // Hook into map events and get the map instance. Leaflet only fires "click" for a genuine
+  // tap/click — it's suppressed automatically after a drag/pan, so no manual drag-detection needed.
   const map = useMapEvents({
-    mousedown(e) {
+    click(e) {
       if (searchParams.get("modal")) return;
-      const { lat, lng } = e.latlng;
-      clearPressTimer();
-      pressTimer.current = setTimeout(() => {
-        pressTimer.current = null;
-        dropPinAt(lat, lng);
-      }, LONG_PRESS_MS);
+      dropPinAt(e.latlng.lat, e.latlng.lng);
     },
-    mouseup: clearPressTimer,
-    // Cancel if the press turns into a pan/drag instead of a hold.
-    dragstart: clearPressTimer,
   });
-
-  // Clear any pending long-press timer on unmount.
-  useEffect(() => clearPressTimer, []);
 
   // Automatically open the popup when the pin is placed or updated
   useEffect(() => {
@@ -117,13 +95,13 @@ export default function MapClickHandler() {
       <Popup maxWidth={220}>
         <div className="text-center pb-1">
           {isLoading ? (
-            <p className="text-sm text-gray-500 mb-3 mt-1">Szukanie miejsca...</p>
+            <p className="text-sm text-muted mb-3 mt-1">Szukanie miejsca...</p>
           ) : (
             <>
               <p className="font-bold text-sm m-0 leading-tight mt-1">
                 {clickData.name || "Wybrane miejsce"}
               </p>
-              <p className="text-[11px] text-gray-500 mt-1 mb-2 truncate" title={clickData.address}>
+              <p className="text-[11px] text-muted mt-1 mb-2 truncate" title={clickData.address}>
                 {clickData.address || `${clickData.lat.toFixed(4)}, ${clickData.lng.toFixed(4)}`}
               </p>
             </>
@@ -137,16 +115,16 @@ export default function MapClickHandler() {
                 e.stopPropagation();
                 setClickData(null); // Remove temporary pin
               }}
-              className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg text-sm font-medium flex-1 transition-colors cursor-pointer"
+              className="bg-base-300 hover:bg-base-300/70 text-base-content px-3 py-1.5 rounded-lg text-sm font-medium flex-1 transition-colors cursor-pointer"
             >
               Odznacz
             </button>
-            
+
             {/* Save button */}
-            <button 
+            <button
               onClick={handleSaveClick}
               disabled={isLoading}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium flex-1 transition-colors disabled:bg-blue-400 cursor-pointer"
+              className="bg-primary hover:bg-primary/90 text-primary-content px-3 py-1.5 rounded-lg text-sm font-medium flex-1 transition-colors disabled:bg-primary/40 cursor-pointer"
             >
               Zapisz
             </button>

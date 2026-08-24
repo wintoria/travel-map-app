@@ -1,8 +1,9 @@
 "use client";
-import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import React from "react";
+import Modal from "@/components/ui/Modal";
+import Button from "@/components/ui/Button";
 import TagSelector from "@/components/tags/TagSelector";
 import { childrenOf } from "@/lib/tree";
 import { AppEvent, emit } from "@/lib/events";
@@ -33,7 +34,7 @@ export default function AddPlaceModal({ currentView }: { currentView: string }) 
     return children.map((child) => (
       <React.Fragment key={child.id}>
         <option value={child.id} className={level === 0 ? "font-bold" : ""}>
-          {"\u00A0\u00A0\u00A0".repeat(level)}
+          {"   ".repeat(level)}
           {level > 0 ? "└ " : ""}
           {child.icon ? `${child.icon} ` : ""}{child.name}
         </option>
@@ -47,9 +48,11 @@ export default function AddPlaceModal({ currentView }: { currentView: string }) 
   const defaultAddress = searchParams.get("address") || "";
   const defaultLat = searchParams.get("lat") || "";
   const defaultLng = searchParams.get("lng") || "";
-  
+
   const isFromMap = !!defaultLat && !!defaultLng;
   const isNameLocked = searchParams.get("lockedName") === "true"; // Check if name should be locked
+
+  const handleClose = () => router.push(`?view=${currentView}`, { scroll: false });
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault(); // Prevent default page reload
@@ -58,7 +61,7 @@ export default function AddPlaceModal({ currentView }: { currentView: string }) 
     try {
       // 1. Gather all data from the form
       const formData = new FormData(e.currentTarget);
-      
+
       const name = formData.get("name") as string;
       const lat = parseFloat(formData.get("lat") as string);
       const lng = parseFloat(formData.get("lng") as string);
@@ -105,7 +108,7 @@ export default function AddPlaceModal({ currentView }: { currentView: string }) 
       );
 
       // Close the modal immediately so it feels fast
-      router.push(`?view=${currentView}`, { scroll: false });
+      handleClose();
 
       // Delay the refresh signal slightly so database and cache can sync
       setTimeout(() => {
@@ -123,185 +126,165 @@ export default function AddPlaceModal({ currentView }: { currentView: string }) 
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-[60] flex items-end sm:items-center justify-center sm:p-4">
-      <div className="bg-white w-full max-w-xl sm:rounded-2xl shadow-xl flex flex-col max-h-[90vh] overflow-hidden">
-        
-        <div className="p-6 border-b border-gray-100 relative flex-shrink-0">
-          <Link 
-            href={`?view=${currentView}`}
-            scroll={false}
-            className="absolute top-6 right-6 text-gray-400 hover:text-gray-800 font-bold text-xl"
+    <Modal onClose={handleClose} title="Dodaj nowe miejsce" maxWidth="max-w-xl" zIndex="z-[60]">
+      {/* Form with browser autocomplete disabled */}
+      <form autoComplete="off" onSubmit={handleSubmit} className="space-y-4 flex flex-col p-6 pt-4">
+
+        {/* Place Name Input */}
+        <div>
+          <label className="block text-sm font-medium text-base-content/80 mb-1">Nazwa miejsca *</label>
+          <input
+            type="text"
+            name="name"
+            required
+            defaultValue={defaultName}
+            readOnly={isNameLocked}
+            autoComplete="off"
+            className={`input input-bordered w-full border-base-300 ${isNameLocked ? 'bg-base-300/50 text-base-content/50' : 'bg-base-100 text-base-content focus:border-primary'}`}
+            placeholder="np. Bakkerij Wolf"
+          />
+        </div>
+
+        {/* Trip / Folder Selection */}
+        <div>
+          <label className="block text-sm font-medium text-base-content/80 mb-1">Zakładka *</label>
+          <select
+            name="trip_id"
+            required
+            className="select select-bordered w-full bg-base-100 border-base-300 text-base-content"
           >
-            ✕
-          </Link>
-          <h2 className="text-xl font-bold text-gray-800">Dodaj nowe miejsce</h2>
+            <option value="">-- Wybierz zakładkę --</option>
+            {renderOptions(null, 0)}
+          </select>
         </div>
-        
-        <div className="overflow-y-auto flex-1">
-          {/* Form with browser autocomplete disabled */}
-          <form autoComplete="off" onSubmit={handleSubmit} className="space-y-4 flex flex-col p-6 pt-4">
-            
-            {/* Place Name Input */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Nazwa miejsca *</label>
-              <input 
-                type="text" 
-                name="name"
-                required
-                defaultValue={defaultName}
-                readOnly={isNameLocked}
-                autoComplete="off"
-                className={`w-full border border-gray-300 rounded-lg p-2 outline-none ${isNameLocked ? 'bg-gray-100 text-gray-500' : 'text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-transparent'}`}
-                placeholder="np. Bakkerij Wolf"
-              />
-            </div>
 
-            {/* Trip / Folder Selection */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Zakładka *</label>
-              <select 
-                name="trip_id" 
-                required 
-                className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-blue-500 text-gray-800 bg-white"
-              >
-                <option value="">-- Wybierz zakładkę --</option>
-                {renderOptions(null, 0)}
-              </select>
-            </div>
-
-            {/* Coordinates (Lat & Lng) Inputs */}
-            <div className="flex gap-4">
-              <div className="flex-1">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Szerokość (Lat) *</label>
-                <input 
-                  type="text" 
-                  name="lat"
-                  required
-                  defaultValue={defaultLat}
-                  readOnly={isFromMap}
-                  autoComplete="off"
-                  className={`w-full border border-gray-300 rounded-lg p-2 outline-none ${isFromMap ? 'bg-gray-100 text-gray-500' : 'text-gray-800 focus:ring-2 focus:ring-blue-500'}`} 
-                  placeholder="np. 53.428" 
-                />
-              </div>
-              <div className="flex-1">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Długość (Lng) *</label>
-                <input 
-                  type="text" 
-                  name="lng"
-                  required
-                  defaultValue={defaultLng}
-                  readOnly={isFromMap}
-                  autoComplete="off"
-                  className={`w-full border border-gray-300 rounded-lg p-2 outline-none ${isFromMap ? 'bg-gray-100 text-gray-500' : 'text-gray-800 focus:ring-2 focus:ring-blue-500'}`} 
-                  placeholder="np. 14.552" 
-                />
-              </div>
-            </div>
-
-            {/* Address Input */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Adres</label>
-              <input 
-                type="text" 
-                name="address"
-                defaultValue={defaultAddress}
-                readOnly={isFromMap}
-                autoComplete="off"
-                className={`w-full border border-gray-300 rounded-lg p-2 outline-none ${isFromMap ? 'bg-gray-100 text-gray-500' : 'text-gray-800 focus:ring-2 focus:ring-blue-500'}`}
-                placeholder="Wpisz adres"
-              />
-            </div>
-
-            {/* Estimated Duration Input */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Szacowany czas</label>
-              <input 
-                type="text" 
-                name="duration"
-                autoComplete="off"
-                className="w-full border border-gray-300 rounded-lg p-2 text-gray-800 focus:ring-2 focus:ring-blue-500 outline-none"
-                placeholder="np. 2-3h, 30 min"
-              />
-            </div>
-
-            {/* Note Textarea */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Notatka</label>
-              <textarea 
-                name="note"
-                rows={3}
-                autoComplete="off"
-                className="w-full border border-gray-300 rounded-lg p-2 text-gray-800 focus:ring-2 focus:ring-blue-500 outline-none resize-none"
-                placeholder="Co warto wiedzieć o tym miejscu?"
-              />
-            </div>
-
-            {/* Tag / Category Selector */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Tagi / Kategorie</label>
-              <TagSelector />
-            </div>
-
-            {/* Google Maps URL Input */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Google Maps</label>
-              <input 
-                type="url" 
-                name="googleMapsUrl"
-                autoComplete="off"
-                className="w-full border border-gray-300 rounded-lg p-2 text-gray-800 focus:ring-2 focus:ring-blue-500 outline-none"
-                placeholder="np. gotowy link z aplikacji"
-              />
-            </div>
-
-            {/* Additional Info (URL & File Upload) */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Dodatkowe informacje (Strona WWW i/lub Załącznik)
-              </label>
-              <div className="flex flex-col gap-3">
-                <input 
-                  type="url" 
-                  name="additionalInfoUrl"
-                  autoComplete="off"
-                  className="w-full border border-gray-300 rounded-lg p-2 text-gray-800 focus:ring-2 focus:ring-blue-500 outline-none"
-                  placeholder="Wklej link (np. rezerwacja, oficjalna strona)"
-                />
-                <input 
-                  type="file"
-                  name="additionalInfoFile"
-                  accept=".pdf,image/*"
-                  className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 cursor-pointer"
-                />
-              </div>
-            </div>
-
-            {/* Visited Status Checkbox */}
-            <div className="flex items-center gap-2 mt-2">
-              <input 
-                type="checkbox" 
-                name="visited"
-                id="visited"
-                className="w-5 h-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
-              />
-              <label htmlFor="visited" className="text-sm font-medium text-gray-700 cursor-pointer">
-                Oznacz jako odwiedzone
-              </label>
-            </div>
-
-            {/* Submit Button */}
-            <button 
-              type="submit"
-              disabled={isSubmitting}
-              className="w-full bg-blue-600 text-white font-bold py-3 rounded-lg mt-4 hover:bg-blue-700 transition-colors disabled:bg-blue-400"
-            >
-              {isSubmitting ? "Zapisywanie..." : "Zapisz miejsce"}
-            </button>
-            
-          </form>
+        {/* Coordinates (Lat & Lng) Inputs */}
+        <div className="flex gap-4">
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-base-content/80 mb-1">Szerokość (Lat) *</label>
+            <input
+              type="text"
+              name="lat"
+              required
+              defaultValue={defaultLat}
+              readOnly={isFromMap}
+              autoComplete="off"
+              className={`input input-bordered w-full border-base-300 ${isFromMap ? 'bg-base-300/50 text-base-content/50' : 'bg-base-100 text-base-content focus:border-primary'}`}
+              placeholder="np. 53.428"
+            />
+          </div>
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-base-content/80 mb-1">Długość (Lng) *</label>
+            <input
+              type="text"
+              name="lng"
+              required
+              defaultValue={defaultLng}
+              readOnly={isFromMap}
+              autoComplete="off"
+              className={`input input-bordered w-full border-base-300 ${isFromMap ? 'bg-base-300/50 text-base-content/50' : 'bg-base-100 text-base-content focus:border-primary'}`}
+              placeholder="np. 14.552"
+            />
+          </div>
         </div>
-      </div>
-    </div>
+
+        {/* Address Input */}
+        <div>
+          <label className="block text-sm font-medium text-base-content/80 mb-1">Adres</label>
+          <input
+            type="text"
+            name="address"
+            defaultValue={defaultAddress}
+            readOnly={isFromMap}
+            autoComplete="off"
+            className={`input input-bordered w-full border-base-300 ${isFromMap ? 'bg-base-300/50 text-base-content/50' : 'bg-base-100 text-base-content focus:border-primary'}`}
+            placeholder="Wpisz adres"
+          />
+        </div>
+
+        {/* Estimated Duration Input */}
+        <div>
+          <label className="block text-sm font-medium text-base-content/80 mb-1">Szacowany czas</label>
+          <input
+            type="text"
+            name="duration"
+            autoComplete="off"
+            className="input input-bordered w-full bg-base-100 border-base-300 text-base-content focus:border-primary"
+            placeholder="np. 2-3h, 30 min"
+          />
+        </div>
+
+        {/* Note Textarea */}
+        <div>
+          <label className="block text-sm font-medium text-base-content/80 mb-1">Notatka</label>
+          <textarea
+            name="note"
+            rows={3}
+            autoComplete="off"
+            className="textarea textarea-bordered w-full bg-base-100 border-base-300 text-base-content resize-none"
+            placeholder="Co warto wiedzieć o tym miejscu?"
+          />
+        </div>
+
+        {/* Tag / Category Selector */}
+        <div>
+          <label className="block text-sm font-medium text-base-content/80 mb-1">Tagi / Kategorie</label>
+          <TagSelector />
+        </div>
+
+        {/* Google Maps URL Input */}
+        <div>
+          <label className="block text-sm font-medium text-base-content/80 mb-1">Google Maps</label>
+          <input
+            type="url"
+            name="googleMapsUrl"
+            autoComplete="off"
+            className="input input-bordered w-full bg-base-100 border-base-300 text-base-content focus:border-primary"
+            placeholder="np. gotowy link z aplikacji"
+          />
+        </div>
+
+        {/* Additional Info (URL & File Upload) */}
+        <div>
+          <label className="block text-sm font-medium text-base-content/80 mb-1">
+            Dodatkowe informacje (Strona WWW i/lub Załącznik)
+          </label>
+          <div className="flex flex-col gap-3">
+            <input
+              type="url"
+              name="additionalInfoUrl"
+              autoComplete="off"
+              className="input input-bordered w-full bg-base-100 border-base-300 text-base-content focus:border-primary"
+              placeholder="Wklej link (np. rezerwacja, oficjalna strona)"
+            />
+            <input
+              type="file"
+              name="additionalInfoFile"
+              accept=".pdf,image/*"
+              className="block w-full text-sm text-base-content/60 file:mr-4 file:py-2 file:px-4 file:font-semibold file:bg-primary/15 file:text-primary file:border-0 file:rounded-full hover:file:bg-primary/25 cursor-pointer"
+            />
+          </div>
+        </div>
+
+        {/* Visited Status Checkbox */}
+        <div className="flex items-center gap-2 mt-2">
+          <input
+            type="checkbox"
+            name="visited"
+            id="visited"
+            className="checkbox checkbox-primary"
+          />
+          <label htmlFor="visited" className="text-sm font-medium text-base-content/80 cursor-pointer">
+            Oznacz jako odwiedzone
+          </label>
+        </div>
+
+        {/* Submit Button */}
+        <Button type="submit" variant="primary" fullWidth disabled={isSubmitting} className="mt-4">
+          {isSubmitting ? "Zapisywanie..." : "Zapisz miejsce"}
+        </Button>
+
+      </form>
+    </Modal>
   );
 }

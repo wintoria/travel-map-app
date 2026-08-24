@@ -33,8 +33,8 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
   // Show a simple loading state while checking credentials
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <p className="text-gray-500 font-medium">Sprawdzanie dostępu...</p>
+      <div className="min-h-screen flex items-center justify-center bg-base-100">
+        <p className="text-base-content/70 font-medium">Sprawdzanie dostępu...</p>
       </div>
     );
   }

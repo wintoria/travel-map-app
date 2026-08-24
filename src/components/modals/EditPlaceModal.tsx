@@ -1,6 +1,9 @@
 "use client";
 import React, { useEffect, useState, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { X, MapPin, Loader2 } from "lucide-react";
+import Modal from "@/components/ui/Modal";
+import Button from "@/components/ui/Button";
 import TagSelector from "@/components/tags/TagSelector";
 import { OpenStreetMapProvider } from "leaflet-geosearch";
 import { childrenOf } from "@/lib/tree";
@@ -79,7 +82,7 @@ export default function EditPlaceModal() {
 
     try {
       const formData = new FormData(e.currentTarget);
-      
+
       const name = formData.get("name") as string;
       const trip_id = formData.get("trip_id") as string;
       const lat = parseFloat(formData.get("lat") as string);
@@ -139,7 +142,7 @@ export default function EditPlaceModal() {
     setIsSearchingCoords(true);
     setSearchError(null);
     setSearchResults([]);
-    
+
     try {
       const provider = new OpenStreetMapProvider();
       // We don't strip special characters here so standard address formats work better
@@ -162,7 +165,7 @@ export default function EditPlaceModal() {
   const handleSelectResult = (result: GeoResult) => {
     if (latRef.current) latRef.current.value = result.y.toString();
     if (lngRef.current) lngRef.current.value = result.x.toString();
-    
+
     // Clear search UI after successful selection
     setSearchResults([]);
     setSearchError(null);
@@ -175,7 +178,7 @@ export default function EditPlaceModal() {
     return children.map((child) => (
       <React.Fragment key={child.id}>
         <option value={child.id} className={level === 0 ? "font-bold" : ""}>
-          {"\u00A0\u00A0\u00A0".repeat(level)}
+          {"   ".repeat(level)}
           {level > 0 ? "└ " : ""}
           {child.icon ? `${child.icon} ` : ""}{child.name}
         </option>
@@ -185,160 +188,151 @@ export default function EditPlaceModal() {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-[60] flex items-end sm:items-center justify-center sm:p-4">
-      <div className="bg-white w-full max-w-xl sm:rounded-2xl shadow-xl flex flex-col max-h-[90vh] overflow-hidden">
-        
-        {/* Single clean header */}
-        <div className="p-6 border-b border-gray-100 relative flex-shrink-0">
-          <button onClick={handleCloseToMap} className="absolute top-6 right-6 text-gray-400 hover:text-gray-800 font-bold text-xl cursor-pointer">
-            ✕
-          </button>
-          <h2 className="text-xl font-bold text-gray-800">Edytuj miejsce</h2>
-        </div>
-        
-        <div className="overflow-y-auto flex-1">
-          {isLoading ? (
-            <p className="text-center p-6 text-gray-500">Ładowanie danych...</p>
-          ) : (
-            <form autoComplete="off" onSubmit={handleSubmit} className="space-y-4 flex flex-col p-6 pt-4">
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Nazwa miejsca *</label>
-                <input ref={nameRef} type="text" name="name" required defaultValue={place?.name} className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-blue-500 text-gray-800" />
-              </div>
+    <Modal onClose={handleCloseToMap} title="Edytuj miejsce" maxWidth="max-w-xl" zIndex="z-[60]">
+      {isLoading ? (
+        <p className="text-center p-6 text-base-content/60">Ładowanie danych...</p>
+      ) : (
+        <form autoComplete="off" onSubmit={handleSubmit} className="space-y-4 flex flex-col p-6 pt-4">
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Zakładka *</label>
-                <select 
-                  name="trip_id" 
-                  required 
-                  defaultValue={place?.trip_id ?? ""}
-                  className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-blue-500 text-gray-800 bg-white"
-                >
-                  <option value="">-- Wybierz zakładkę --</option>
-                  {renderOptions(null, 0)}
-                </select>
-              </div>
+          <div>
+            <label className="block text-sm font-medium text-base-content/80 mb-1">Nazwa miejsca *</label>
+            <input ref={nameRef} type="text" name="name" required defaultValue={place?.name} className="input input-bordered w-full bg-base-100 border-base-300 text-base-content focus:border-primary" />
+          </div>
 
-              {/* Coordinates Section with Smart Geosearch Button */}
-              <div className="flex flex-col gap-1 pt-1">
-                <div className="flex justify-between items-center mb-1">
-                  <label className="block text-sm font-medium text-gray-700">Współrzędne (Lat / Lng) *</label>
-                  <button
-                    type="button"
-                    onClick={handleAutoSearch}
-                    disabled={isSearchingCoords}
-                    className="text-xs bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold py-1.5 px-3 rounded flex items-center gap-1 transition-colors disabled:opacity-50 cursor-pointer shadow-sm"
-                    title="Pobierz z OpenStreetMap na podstawie nazwy i adresu"
-                  >
-                    {isSearchingCoords ? "⏳ Szukam..." : "📍 Znajdź na mapie"}
+          <div>
+            <label className="block text-sm font-medium text-base-content/80 mb-1">Zakładka *</label>
+            <select
+              name="trip_id"
+              required
+              defaultValue={place?.trip_id ?? ""}
+              className="select select-bordered w-full bg-base-100 border-base-300 text-base-content"
+            >
+              <option value="">-- Wybierz zakładkę --</option>
+              {renderOptions(null, 0)}
+            </select>
+          </div>
+
+          {/* Coordinates Section with Smart Geosearch Button */}
+          <div className="flex flex-col gap-1 pt-1">
+            <div className="flex justify-between items-center mb-1">
+              <label className="block text-sm font-medium text-base-content/80">Współrzędne (Lat / Lng) *</label>
+              <button
+                type="button"
+                onClick={handleAutoSearch}
+                disabled={isSearchingCoords}
+                className="text-xs bg-warning/15 hover:bg-warning/25 text-warning font-bold py-1.5 px-3 rounded flex items-center gap-1 transition-colors disabled:opacity-50 cursor-pointer shadow-sm"
+                title="Pobierz z OpenStreetMap na podstawie nazwy i adresu"
+              >
+                {isSearchingCoords ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" /> Szukam...
+                  </>
+                ) : (
+                  <>
+                    <MapPin size={14} /> Znajdź na mapie
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Inline Error UI (replaces system alerts) */}
+            {searchError && (
+              <div className="bg-error/15 text-error text-xs p-2.5 rounded-lg border border-error/40 mb-1 flex justify-between items-center animate-in fade-in">
+                <span>{searchError}</span>
+                <button type="button" onClick={() => setSearchError(null)} className="text-error hover:text-error/70 cursor-pointer leading-none ml-2">
+                  <X size={14} />
+                </button>
+              </div>
+            )}
+
+            {/* Interactive Search Results List */}
+            {searchResults.length > 0 && (
+              <div className="bg-base-100 border border-base-300 rounded-lg shadow-md max-h-48 overflow-y-auto mb-2 z-10 flex flex-col animate-in fade-in zoom-in duration-150">
+                <div className="bg-base-200 p-2 text-xs font-bold text-base-content/60 border-b border-base-300 flex justify-between items-center sticky top-0">
+                  <span>Wybierz właściwe miejsce ({searchResults.length}):</span>
+                  <button type="button" onClick={() => setSearchResults([])} className="text-base-content/50 hover:text-base-content cursor-pointer leading-none">
+                    <X size={14} />
                   </button>
                 </div>
-                
-                {/* Inline Error UI (replaces system alerts) */}
-                {searchError && (
-                  <div className="bg-red-50 text-red-700 text-xs p-2.5 rounded-lg border border-red-200 mb-1 flex justify-between items-center animate-in fade-in">
-                    <span>{searchError}</span>
-                    <button type="button" onClick={() => setSearchError(null)} className="text-red-500 hover:text-red-800 cursor-pointer text-lg leading-none ml-2">✕</button>
-                  </div>
-                )}
-
-                {/* Interactive Search Results List */}
-                {searchResults.length > 0 && (
-                  <div className="bg-white border border-gray-200 rounded-lg shadow-md max-h-48 overflow-y-auto mb-2 z-10 flex flex-col animate-in fade-in zoom-in duration-150">
-                    <div className="bg-gray-50 p-2 text-xs font-bold text-gray-500 border-b border-gray-200 flex justify-between items-center sticky top-0">
-                      <span>Wybierz właściwe miejsce ({searchResults.length}):</span>
-                      <button type="button" onClick={() => setSearchResults([])} className="text-gray-400 hover:text-gray-700 cursor-pointer text-lg leading-none">✕</button>
-                    </div>
-                    {searchResults.map((result, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => handleSelectResult(result)}
-                        className="text-left p-2.5 text-xs text-gray-700 hover:bg-amber-50 border-b border-gray-100 last:border-0 cursor-pointer transition-colors"
-                      >
-                        {result.label}
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                <div className="flex gap-4">
-                  <div className="flex-1">
-                    <input ref={latRef} type="text" name="lat" required defaultValue={place?.lat || ""} className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-blue-500 text-gray-800" placeholder="np. 52.229" />
-                  </div>
-                  <div className="flex-1">
-                    <input ref={lngRef} type="text" name="lng" required defaultValue={place?.lng || ""} className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-blue-500 text-gray-800" placeholder="np. 21.012" />
-                  </div>
-                </div>
+                {searchResults.map((result, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => handleSelectResult(result)}
+                    className="text-left p-2.5 text-xs text-base-content/80 hover:bg-warning/10 border-b border-base-300 last:border-0 cursor-pointer transition-colors"
+                  >
+                    {result.label}
+                  </button>
+                ))}
               </div>
+            )}
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Adres</label>
-                <input ref={addressRef} type="text" name="address" defaultValue={place?.address ?? ""} className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-blue-500 text-gray-800" placeholder="Opcjonalnie (pomaga w wyszukiwaniu)" />
+            <div className="flex gap-4">
+              <div className="flex-1">
+                <input ref={latRef} type="text" name="lat" required defaultValue={place?.lat || ""} className="input input-bordered w-full bg-base-100 border-base-300 text-base-content focus:border-primary" placeholder="np. 52.229" />
               </div>
+              <div className="flex-1">
+                <input ref={lngRef} type="text" name="lng" required defaultValue={place?.lng || ""} className="input input-bordered w-full bg-base-100 border-base-300 text-base-content focus:border-primary" placeholder="np. 21.012" />
+              </div>
+            </div>
+          </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Szacowany czas</label>
-                <input type="text" name="duration" defaultValue={place?.duration ?? ""} className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-blue-500 text-gray-800" />
-              </div>
+          <div>
+            <label className="block text-sm font-medium text-base-content/80 mb-1">Adres</label>
+            <input ref={addressRef} type="text" name="address" defaultValue={place?.address ?? ""} className="input input-bordered w-full bg-base-100 border-base-300 text-base-content focus:border-primary" placeholder="Opcjonalnie (pomaga w wyszukiwaniu)" />
+          </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Notatka</label>
-                <textarea name="note" rows={3} defaultValue={place?.note ?? ""} className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-blue-500 text-gray-800 resize-none" />
-              </div>
+          <div>
+            <label className="block text-sm font-medium text-base-content/80 mb-1">Szacowany czas</label>
+            <input type="text" name="duration" defaultValue={place?.duration ?? ""} className="input input-bordered w-full bg-base-100 border-base-300 text-base-content focus:border-primary" />
+          </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Tagi / Kategorie</label>
-                <TagSelector initialSelected={initialCategories} />
-              </div>
+          <div>
+            <label className="block text-sm font-medium text-base-content/80 mb-1">Notatka</label>
+            <textarea name="note" rows={3} defaultValue={place?.note ?? ""} className="textarea textarea-bordered w-full bg-base-100 border-base-300 text-base-content resize-none" />
+          </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Google Maps URL</label>
-                <input type="url" name="googleMapsUrl" defaultValue={place?.google_maps_url ?? ""} className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-blue-500 text-gray-800" />
-              </div>
+          <div>
+            <label className="block text-sm font-medium text-base-content/80 mb-1">Tagi / Kategorie</label>
+            <TagSelector initialSelected={initialCategories} />
+          </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Strona WWW</label>
-                <input type="url" name="additionalInfoUrl" defaultValue={place?.additional_link ?? ""} className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-blue-500 text-gray-800 mb-4" />
-                
-                <label className="block text-sm font-medium text-gray-700 mb-1">Załącznik</label>
-                
-                {/* Show current attachment link with decoded filename */}
-                {place?.attached_file && (
-                  <div className="mb-2 text-sm text-gray-600 bg-gray-50 p-2 rounded border border-gray-100 flex items-center gap-2">
-                    <span className="font-medium">Aktualny:</span>
-                    <a href={place.attached_file} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline truncate" title="Otwórz plik">
-                      {decodeURIComponent(place.attached_file.split('/').pop() || "Otwórz podgląd")}
-                    </a>
-                  </div>
-                )}
-                
-                <input type="file" name="additionalInfoFile" accept=".pdf,image/*" className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-gray-100 cursor-pointer mt-1" />
-                <p className="text-xs text-gray-400 mt-1">Wybierz nowy plik, aby nadpisać stary.</p>
-              </div>
+          <div>
+            <label className="block text-sm font-medium text-base-content/80 mb-1">Google Maps URL</label>
+            <input type="url" name="googleMapsUrl" defaultValue={place?.google_maps_url ?? ""} className="input input-bordered w-full bg-base-100 border-base-300 text-base-content focus:border-primary" />
+          </div>
 
-              {/* Action Buttons */}
-              <div className="flex gap-3 mt-4 pt-2">
-                <button 
-                  type="button" 
-                  onClick={handleBackToDetails}
-                  className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold py-3 rounded-lg transition-colors cursor-pointer"
-                >
-                  Anuluj
-                </button>
-                <button 
-                  type="submit" 
-                  disabled={isSubmitting} 
-                  className="flex-[2] bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition-colors disabled:bg-blue-400 cursor-pointer"
-                >
-                  {isSubmitting ? "Zapisywanie..." : "Zapisz zmiany"}
-                </button>
+          <div>
+            <label className="block text-sm font-medium text-base-content/80 mb-1">Strona WWW</label>
+            <input type="url" name="additionalInfoUrl" defaultValue={place?.additional_link ?? ""} className="input input-bordered w-full bg-base-100 border-base-300 text-base-content focus:border-primary mb-4" />
+
+            <label className="block text-sm font-medium text-base-content/80 mb-1">Załącznik</label>
+
+            {/* Show current attachment link with decoded filename */}
+            {place?.attached_file && (
+              <div className="mb-2 text-sm text-base-content/70 bg-base-100 p-2 rounded border border-base-300 flex items-center gap-2">
+                <span className="font-medium">Aktualny:</span>
+                <a href={place.attached_file} target="_blank" rel="noreferrer" className="text-primary hover:underline truncate" title="Otwórz plik">
+                  {decodeURIComponent(place.attached_file.split('/').pop() || "Otwórz podgląd")}
+                </a>
               </div>
-            </form>
-          )}
-        </div>
-      </div>
-    </div>
+            )}
+
+            <input type="file" name="additionalInfoFile" accept=".pdf,image/*" className="block w-full text-sm text-base-content/60 file:mr-4 file:py-2 file:px-4 file:font-semibold file:bg-primary/15 file:text-primary file:border-0 file:rounded-full hover:file:bg-primary/25 cursor-pointer mt-1" />
+            <p className="text-xs text-muted mt-1">Wybierz nowy plik, aby nadpisać stary.</p>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex gap-3 mt-4 pt-2">
+            <Button type="button" variant="secondary" onClick={handleBackToDetails} className="flex-1">
+              Anuluj
+            </Button>
+            <Button type="submit" variant="primary" disabled={isSubmitting} className="flex-[2]">
+              {isSubmitting ? "Zapisywanie..." : "Zapisz zmiany"}
+            </Button>
+          </div>
+        </form>
+      )}
+    </Modal>
   );
 }

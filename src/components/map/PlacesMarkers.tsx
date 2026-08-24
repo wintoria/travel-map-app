@@ -179,21 +179,21 @@ export default function PlacesMarkers() {
                   e.stopPropagation();
                   handleViewDetails(place.id);
                 }}
-                className="font-bold text-sm m-0 leading-tight mt-1 text-gray-800 hover:text-gray-500 !no-underline transition-colors cursor-pointer w-full text-center border-none bg-transparent"
+                className="font-bold text-sm m-0 leading-tight mt-1 text-base-content hover:text-muted !no-underline transition-colors cursor-pointer w-full text-center border-none bg-transparent"
               >
                 {place.name}
               </button>
               
               {/* Address display (Passed through formatter) */}
               {place.address && (
-                <p className="text-[11px] text-gray-500 mt-1 mb-2">
+                <p className="text-[11px] text-muted mt-1 mb-2">
                   {formatAddress(place.address)}
                 </p>
               )}
-              
+
               {/* Styled note display */}
               {place.note && (
-                <p className="text-xs text-gray-700 mt-2 mb-2 italic border-l-2 border-blue-500 pl-2 text-left">
+                <p className="text-xs text-base-content/70 mt-2 mb-2 italic border-l-2 border-primary pl-2 text-left">
                   {place.note}
                 </p>
               )}

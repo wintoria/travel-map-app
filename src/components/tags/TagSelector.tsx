@@ -1,9 +1,11 @@
 "use client";
 import { useState, useEffect } from "react";
+import { Star, X } from "lucide-react";
 import { getBrightness, effectiveTagColor, autoColorForEmoji, DEFAULT_MARKER_EMOJI } from "@/lib/color";
 import { fetchCategories, createCategory, sortCategories } from "@/lib/api/categories";
 import { AppEvent, emit } from "@/lib/events";
 import IconPicker from "./IconPicker";
+import Button from "@/components/ui/Button";
 import toast from "react-hot-toast";
 import type { Category } from "@/lib/types";
 
@@ -52,9 +54,9 @@ export default function TagSelector({ initialSelected = [] }: { initialSelected?
         <button
           type="button"
           onClick={() => setShowNewForm(!showNewForm)}
-          className="px-3 py-1.5 rounded-full text-sm font-medium border border-dashed border-gray-400 text-gray-600 hover:bg-gray-50 transition-colors shrink-0 cursor-pointer"
+          className="px-3 py-1.5 rounded-full text-sm font-medium border border-dashed border-base-300 text-base-content/70 hover:bg-base-300/50 transition-colors shrink-0 cursor-pointer flex items-center gap-1"
         >
-          {showNewForm ? "✕ Anuluj" : "+ Nowy tag"}
+          {showNewForm ? <><X size={14} /> Anuluj</> : "+ Nowy tag"}
         </button>
 
         {categories.map((cat) => {
@@ -83,7 +85,11 @@ export default function TagSelector({ initialSelected = [] }: { initialSelected?
               }}
               className={`px-3 py-1.5 rounded-full text-sm font-medium border-2 transition-all flex items-center gap-1.5 max-w-full cursor-pointer hover:opacity-80 ${isSelected ? 'border-solid shadow-sm' : 'border-dashed'}`}
             >
-              {cat.is_main && <span className="shrink-0" title="Główny tag">⭐</span>}
+              {cat.is_main && (
+                <span className="shrink-0 text-warning" title="Główny tag">
+                  <Star size={14} fill="currentColor" />
+                </span>
+              )}
               <span className="shrink-0">{cat.icon}</span>
               <span className="truncate max-w-[120px]">{cat.name}</span>
             </button>
@@ -92,30 +98,26 @@ export default function TagSelector({ initialSelected = [] }: { initialSelected?
       </div>
 
       {showNewForm && (
-        <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 flex flex-wrap gap-2 items-center animate-in fade-in slide-in-from-top-2">
+        <div className="bg-base-100/50 p-3 rounded-lg border border-base-300 flex flex-wrap gap-2 items-center animate-in fade-in slide-in-from-top-2">
           <IconPicker value={newIcon} onChange={setNewIcon} />
           <input
             type="text"
             placeholder="Nazwa tagu"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
-            className="flex-1 min-w-[120px] p-1.5 border border-gray-300 rounded-md text-sm outline-none"
+            className="flex-1 min-w-[120px] p-1.5 bg-base-100 border border-base-300 text-base-content rounded-md text-sm outline-none"
           />
           <button
             type="button"
             onClick={() => setNewIsMain(!newIsMain)}
             title="Główny tag — jego emoji pojawi się na markerze mapy"
-            className={`w-8 h-8 shrink-0 rounded-md border text-lg flex items-center justify-center cursor-pointer transition-colors ${newIsMain ? "bg-yellow-400 border-yellow-500" : "bg-white border-gray-300 grayscale opacity-50 hover:opacity-100"}`}
+            className={`w-8 h-8 shrink-0 rounded-md border flex items-center justify-center cursor-pointer transition-colors ${newIsMain ? "bg-warning/20 border-warning" : "bg-base-200 border-base-300 opacity-60 hover:opacity-100"}`}
           >
-            ⭐
+            <Star size={16} fill={newIsMain ? "currentColor" : "none"} className={newIsMain ? "text-warning" : "text-muted"} />
           </button>
-          <button
-            type="button"
-            onClick={handleCreateCategory}
-            className="bg-gray-800 text-white px-3 py-1.5 rounded-md text-sm font-medium hover:bg-gray-900 cursor-pointer"
-          >
+          <Button type="button" onClick={handleCreateCategory} variant="primary">
             Zapisz
-          </button>
+          </Button>
         </div>
       )}
     </div>

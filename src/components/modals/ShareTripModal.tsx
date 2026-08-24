@@ -1,6 +1,9 @@
 "use client";
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { Send } from "lucide-react";
+import Modal from "@/components/ui/Modal";
+import Button from "@/components/ui/Button";
 import { supabase } from "@/lib/supabase";
 
 export default function ShareTripModal() {
@@ -64,24 +67,17 @@ export default function ShareTripModal() {
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-6 animate-in fade-in zoom-in-95 duration-200">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-bold text-gray-800">Udostępnij wycieczkę</h2>
-          <button onClick={closeModal} className="text-gray-400 hover:text-gray-600 cursor-pointer">
-            ✕
-          </button>
-        </div>
-
+    <Modal onClose={closeModal} title="Udostępnij wycieczkę" maxWidth="max-w-md" zIndex="z-[60]">
+      <div className="p-6">
         {message.text && (
-          <div className={`p-3 rounded-lg text-sm mb-4 font-medium border ${message.type === 'error' ? 'bg-red-50 text-red-600 border-red-100' : 'bg-green-50 text-green-600 border-green-100'}`}>
+          <div className={`p-3 rounded-lg text-sm mb-4 font-medium border ${message.type === 'error' ? 'bg-error/15 text-error border-error/40' : 'bg-success/15 text-success border-success/40'}`}>
             {message.text}
           </div>
         )}
 
         <form onSubmit={handleShare} className="flex flex-col gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-base-content/80 mb-1">
               E-mail znajomego
             </label>
             <input
@@ -90,31 +86,27 @@ export default function ShareTripModal() {
               placeholder="np. jan@kowalski.pl"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+              className="input input-bordered w-full bg-base-100 border-base-300 text-base-content focus:border-primary"
             />
-            <p className="text-xs text-gray-500 mt-2">
+            <p className="text-xs text-muted mt-2">
               Osoba ta musi najpierw zalogować się do aplikacji przynajmniej raz.
             </p>
           </div>
 
           <div className="flex justify-end gap-3 mt-4">
-            <button
-              type="button"
-              onClick={closeModal}
-              className="px-4 py-2 text-gray-600 font-medium hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
-            >
+            <Button type="button" variant="ghost" onClick={closeModal} className="px-4">
               Anuluj
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="px-4 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-colors shadow-sm disabled:bg-blue-400 cursor-pointer flex items-center gap-2"
-            >
-              {loading ? "Szukam..." : "Zaproś ✈️"}
-            </button>
+            </Button>
+            <Button type="submit" variant="primary" disabled={loading} className="px-4">
+              {loading ? "Szukam..." : (
+                <>
+                  Zaproś <Send size={16} />
+                </>
+              )}
+            </Button>
           </div>
         </form>
       </div>
-    </div>
+    </Modal>
   );
 }

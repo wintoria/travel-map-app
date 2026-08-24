@@ -1,4 +1,61 @@
 @import "tailwindcss";
+@plugin "daisyui";
+
+@plugin "daisyui/theme" {
+  name: "forest";
+  default: true;
+  prefersdark: false;
+  color-scheme: dark;
+
+  --color-base-100: #111815;
+  --color-base-200: #17201C;
+  --color-base-300: #26352D;
+  --color-base-content: #F0EDE3;
+
+  --color-primary: #526B55;
+  --color-primary-content: #F0EDE3;
+  --color-secondary: #416875;
+  --color-secondary-content: #F0EDE3;
+  --color-accent: #9A7355;
+  --color-accent-content: #111815;
+  --color-neutral: #28505A;
+  --color-neutral-content: #F0EDE3;
+
+  --color-info: #4D8491;
+  --color-info-content: #F0EDE3;
+  --color-success: #6F8F63;
+  --color-success-content: #111815;
+  --color-warning: #B96D50;
+  --color-warning-content: #111815;
+  --color-error: #9A514F;
+  --color-error-content: #F0EDE3;
+
+  --radius-selector: 0.5rem;
+  --radius-field: 0.5rem;
+  --radius-box: 1rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+}
+
+@theme {
+  --color-walnut: #4A3428;
+  --color-chestnut: #674737;
+  --color-oak: #9A7355;
+  --color-silver: #B8BEC0;
+  --color-silver-light: #D5D9D9;
+  --color-silver-dark: #8A9295;
+  --color-gunmetal: #626A6D;
+  --color-text-secondary: #C0C5C2;
+  --color-muted: #8F9893;
+  --color-lichen: #A5AD8D;
+  --color-sage: #71806A;
+  --color-laurel: #526B55;
+  --color-forest: #2F4A3A;
+  --color-fjord: #1E3A46;
+}
 
 /* Geosearch Custom Styling */
 .leaflet-control-geosearch {
@@ -9,7 +66,7 @@
 
 .leaflet-control-geosearch form {
   border-radius: 0.75rem !important;
-  background: white !important;
+  background: #17201C !important;
   padding: 0 !important;
   margin: 0 !important;
 }
@@ -22,18 +79,20 @@
   border: none !important;
   outline: none !important;
   box-shadow: none !important;
+  background: transparent !important;
+  color: #F0EDE3 !important;
 }
 
 /* Results Dropdown */
 .leaflet-control-geosearch .results {
-  display: none !important; 
+  display: none !important;
   margin: 4px 0 0 0 !important;
   padding: 0 !important;
-  background: white !important;
+  background: #17201C !important;
   border-radius: 0.75rem !important;
-  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1) !important;
-  border: 1px solid #e5e7eb !important;
-  overflow: hidden !important; 
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.4) !important;
+  border: 1px solid #26352D !important;
+  overflow: hidden !important;
 }
 
 .leaflet-control-geosearch .results.active {
@@ -44,9 +103,9 @@
 .leaflet-control-geosearch .results > * {
   padding: 10px 12px !important;
   font-size: 13px !important;
-  border: none !important; 
-  border-bottom: 1px solid #f3f4f6 !important; 
-  color: #374151 !important;
+  border: none !important;
+  border-bottom: 1px solid #26352D !important;
+  color: #C0C5C2 !important;
   margin: 0 !important;
   outline: none !important;
 }
@@ -57,11 +116,47 @@
 
 .leaflet-control-geosearch .results > *:hover,
 .leaflet-control-geosearch .results > *.active {
-  background-color: #f3f4f6 !important;
-  border-bottom: 1px solid #f3f4f6 !important;
+  background-color: #26352D !important;
+  border-bottom: 1px solid #26352D !important;
 }
 
 /* Compact Popup margins */
 .leaflet-popup-content {
   margin: 12px 14px !important;
+}
+
+/* Dark theme for the Leaflet popup chrome (wrapper card, tip, built-in close button) */
+.leaflet-popup-content-wrapper {
+  background: #17201C !important;
+  color: #F0EDE3 !important;
+  border-radius: 0.75rem !important;
+}
+
+.leaflet-popup-tip {
+  background: #17201C !important;
+}
+
+.leaflet-popup-close-button {
+  color: #8F9893 !important;
+}
+
+.leaflet-popup-close-button:hover {
+  color: #F0EDE3 !important;
+}
+
+/* Dark theme for the geosearch clear/reset button (library-default white square) */
+.leaflet-control-geosearch button.reset {
+  background-color: #26352D !important;
+  color: #F0EDE3 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 38px !important;
+  line-height: 1 !important;
+  padding: 0 12px !important;
+  font-size: 16px !important;
+}
+
+.leaflet-control-geosearch button.reset:hover {
+  background-color: #416875 !important;
 }

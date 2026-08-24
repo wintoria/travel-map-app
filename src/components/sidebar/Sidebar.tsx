@@ -10,6 +10,18 @@ import { getAllDescendants } from "@/lib/tree";
 import { AppEvent, emit } from "@/lib/events";
 import { currentParams, openModal, pushParams } from "@/lib/url";
 import toast from "react-hot-toast";
+import {
+  Folder,
+  Bookmark,
+  Share2,
+  Settings,
+  X,
+  MapPin,
+  Loader2,
+  ChevronRight,
+  ChevronDown,
+  Tag,
+} from "lucide-react";
 import type { Category, Place, Trip } from "@/lib/types";
 
 interface SidebarProps {
@@ -258,47 +270,47 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     if (children.length === 0) return null;
 
     return (
-      <div className={level === 0 ? "space-y-3 mt-3" : "ml-6 space-y-2 border-l-2 border-gray-100 pl-3 pt-1 mt-2"}>
+      <div className={level === 0 ? "space-y-3 mt-3" : "ml-6 space-y-2 border-l-2 border-base-300 pl-3 pt-1 mt-2"}>
         {children.map(child => {
           const isChecked = selectedIds.has(child.id);
           return (
-            <div key={child.id} className={level === 0 ? "border border-gray-100 rounded-lg p-2.5 shadow-sm bg-white" : ""}>
+            <div key={child.id} className={level === 0 ? "border border-base-300 rounded-lg p-2.5 shadow-sm bg-base-200" : ""}>
               <div className={`flex items-center gap-2.5 ${level === 0 ? "mb-1" : ""}`}>
-                <input 
-                  type="checkbox" 
+                <input
+                  type="checkbox"
                   checked={isChecked}
                   onChange={() => handleTripToggle(child.id)}
-                  className="w-4 h-4 text-blue-600 rounded border-gray-300 cursor-pointer" 
+                  className="checkbox checkbox-primary checkbox-sm cursor-pointer"
                 />
                 <span className={level === 0 ? "text-lg leading-none" : "text-base leading-none"}>
-                  {child.icon || (level === 0 ? "🗂️" : "🔖")}
+                  {child.icon || (level === 0 ? <Folder size={16} /> : <Bookmark size={16} />)}
                 </span>
-                
-                <span className={`flex-1 truncate ${level === 0 ? "font-bold text-gray-800" : "text-sm text-gray-700"}`}>
+
+                <span className={`flex-1 truncate ${level === 0 ? "font-bold text-base-content" : "text-sm text-base-content/80"}`}>
                   {child.name}
                 </span>
 
                 <div className="flex items-center gap-1 ml-auto pl-2">
-                  <button 
+                  <button
                     onClick={(e) => {
                       e.stopPropagation();
                       openModal(router, "share-trip", { tripId: child.id });
                     }}
-                    className="flex items-center justify-center w-7 h-7 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded transition-colors text-base cursor-pointer"
+                    className="flex items-center justify-center w-7 h-7 text-muted hover:text-primary hover:bg-primary/10 rounded transition-colors text-base cursor-pointer"
                     title="Udostępnij wycieczkę"
                   >
-                    <span className="leading-none pb-0.5 text-lg">📨</span>
+                    <Share2 size={16} />
                   </button>
 
-                  <button 
+                  <button
                     onClick={(e) => {
                       e.stopPropagation();
                       openModal(router, "edit-trip", { tripId: child.id });
                     }}
-                    className="flex items-center justify-center w-7 h-7 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors text-sm cursor-pointer"
+                    className="flex items-center justify-center w-7 h-7 text-muted hover:text-base-content hover:bg-base-300 rounded transition-colors text-sm cursor-pointer"
                     title="Edytuj"
                   >
-                    <span className="leading-none">⚙️</span>
+                    <Settings size={16} />
                   </button>
                 </div>
               </div>
@@ -314,23 +326,23 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     <>
       {/* Overlay strictly bound to top and bottom of relative parent */}
       {isOpen && (
-        <div 
-          className="absolute top-0 bottom-0 left-0 right-0 bg-black/20 z-[40]" 
-          onClick={onClose} 
+        <div
+          className="absolute top-0 bottom-0 left-0 right-0 bg-black/50 z-[40]"
+          onClick={onClose}
         />
       )}
 
       {/* Sidebar strictly bound to top and bottom */}
-      <div 
-        className={`absolute top-0 bottom-0 left-0 w-96 bg-gray-50 shadow-2xl z-[50] transform transition-transform duration-300 flex flex-col ${
+      <div
+        className={`absolute top-0 bottom-0 left-0 w-96 bg-base-200 shadow-2xl z-[50] transform transition-transform duration-300 flex flex-col ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         {/* Header */}
-        <div className="p-5 border-b border-gray-200 flex justify-between items-center bg-white">
-          <h2 className="font-bold text-lg text-gray-800">Filtry i Opcje</h2>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-800 text-xl font-bold cursor-pointer">
-            ✕
+        <div className="p-5 border-b border-base-300 flex justify-between items-center bg-base-200">
+          <h2 className="font-bold text-lg text-base-content">Filtry i Opcje</h2>
+          <button onClick={onClose} className="text-base-content/70 hover:text-base-content font-bold cursor-pointer">
+            <X size={20} />
           </button>
         </div>
 
@@ -339,33 +351,33 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           
           {/* 0. Pending Places Accordion (Only visible if there are pending places) */}
           {pendingPlaces.length > 0 && (
-            <div className="border border-amber-200 rounded-xl overflow-hidden bg-amber-50 shadow-sm">
-              <button 
-                onClick={() => setIsPendingOpen(!isPendingOpen)} 
-                className="w-full flex justify-between items-center p-3.5 hover:bg-amber-100/50 font-semibold text-amber-900 transition-colors cursor-pointer border-b border-amber-100"
+            <div className="border border-warning/40 rounded-xl overflow-hidden bg-warning/10 shadow-sm">
+              <button
+                onClick={() => setIsPendingOpen(!isPendingOpen)}
+                className="w-full flex justify-between items-center p-3.5 hover:bg-warning/20 font-semibold text-warning transition-colors cursor-pointer border-b border-warning/20"
               >
                 <div className="flex items-center gap-2">
-                  <span className="text-xl">📍</span>
+                  <MapPin size={16} />
                   <span>Miejsca do uzupełnienia ({pendingPlaces.length})</span>
                 </div>
-                <span className="text-xs text-amber-600/70">{isPendingOpen ? '▼' : '▶'}</span>
+                <span className="text-xs text-warning/70">{isPendingOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</span>
               </button>
               
               {isPendingOpen && (
                 <div className="p-3 space-y-2">
                   
                   {/* Smart Progress Button */}
-                  <button 
+                  <button
                     onClick={handleBatchGeocode}
                     disabled={geocodeProgress.isRunning}
-                    className={`w-full py-2 text-white text-sm font-bold rounded-lg transition-all shadow-sm flex flex-col items-center justify-center gap-1 mb-3 ${
-                      geocodeProgress.isRunning ? "bg-amber-400 cursor-wait" : "bg-amber-500 hover:bg-amber-600 cursor-pointer"
+                    className={`w-full py-2 text-warning-content text-sm font-bold rounded-lg transition-all shadow-sm flex flex-col items-center justify-center gap-1 mb-3 ${
+                      geocodeProgress.isRunning ? "bg-warning/40 cursor-wait" : "bg-warning hover:bg-warning/90 cursor-pointer"
                     }`}
                   >
                     {geocodeProgress.isRunning ? (
                       <>
                         <div className="flex items-center gap-2">
-                          <span className="animate-spin text-lg leading-none">⏳</span>
+                          <Loader2 size={14} className="animate-spin" />
                           <span>Przeszukiwanie bazy...</span>
                         </div>
                         <span className="text-xs font-medium opacity-90">
@@ -374,16 +386,18 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                       </>
                     ) : (
                       <div className="flex items-center gap-2">
-                        <span>▶</span> <span>Szukaj automatycznie</span>
+                        <ChevronRight size={16} /> <span>Szukaj automatycznie</span>
                       </div>
                     )}
                   </button>
 
                   {/* Beautiful inline summary instead of system alert */}
                   {geocodeSummary && (
-                    <div className="bg-green-50 border border-green-200 text-green-800 p-3 rounded-lg text-xs font-medium mb-3 flex justify-between items-start shadow-sm animate-in fade-in zoom-in duration-200">
+                    <div className="bg-success/15 border border-success/40 text-success p-3 rounded-lg text-xs font-medium mb-3 flex justify-between items-start shadow-sm animate-in fade-in zoom-in duration-200">
                       <span className="whitespace-pre-wrap">{geocodeSummary}</span>
-                      <button onClick={() => setGeocodeSummary(null)} className="text-green-600 hover:text-green-900 ml-2 cursor-pointer text-sm leading-none">✕</button>
+                      <button onClick={() => setGeocodeSummary(null)} className="text-success hover:text-success/80 ml-2 cursor-pointer text-sm leading-none">
+                        <X size={14} />
+                      </button>
                     </div>
                   )}
 
@@ -391,18 +405,18 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                     {pendingPlaces.map(place => (
                       <div key={place.id} className="flex flex-col gap-2">
                         {/* Main list item block */}
-                        <div 
-                          className={`p-2.5 bg-white border rounded-lg shadow-sm flex justify-between items-center group cursor-pointer transition-colors ${deleteConfirmId === place.id ? 'border-red-300 bg-red-50' : 'border-amber-100 hover:border-amber-300'}`}
+                        <div
+                          className={`p-2.5 bg-base-200 border rounded-lg shadow-sm flex justify-between items-center group cursor-pointer transition-colors ${deleteConfirmId === place.id ? 'border-error/40 bg-error/15' : 'border-warning/20 hover:border-warning/50'}`}
                           onClick={() => {
                             if (deleteConfirmId === place.id) return; // Prevent opening edit if confirming deletion
                             openModal(router, "edit-place", { placeId: place.id });
                           }}
                         >
                           <div className="flex flex-col overflow-hidden pr-2">
-                            <span className="text-sm font-bold text-gray-800 truncate">{place.name}</span>
-                            {place.note && <span className="text-xs text-gray-500 truncate">{place.note}</span>}
+                            <span className="text-sm font-bold text-base-content truncate">{place.name}</span>
+                            {place.note && <span className="text-xs text-base-content/70 truncate">{place.note}</span>}
                           </div>
-                          
+
                           {/* Action buttons revealed on hover (hide if confirming delete) */}
                           {deleteConfirmId !== place.id && (
                             <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -411,12 +425,12 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                                   e.stopPropagation();
                                   setDeleteConfirmId(place.id); // Open inline confirmation
                                 }}
-                                className="text-red-600 bg-red-50 hover:bg-red-200 px-2 py-1 rounded text-xs font-bold transition-colors cursor-pointer"
+                                className="text-error bg-error/10 hover:bg-error/20 px-2 py-1 rounded text-xs font-bold transition-colors cursor-pointer"
                                 title="Usuń miejsce"
                               >
-                                ✕
+                                <X size={14} />
                               </button>
-                              <span className="text-amber-700 text-xs font-bold whitespace-nowrap bg-amber-100 px-2 py-1 rounded">
+                              <span className="text-warning text-xs font-bold whitespace-nowrap bg-warning/20 px-2 py-1 rounded">
                                 Edytuj
                               </span>
                             </div>
@@ -425,18 +439,18 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
                         {/* Custom inline delete confirmation UI */}
                         {deleteConfirmId === place.id && (
-                          <div className="bg-red-50 p-3 rounded-lg flex flex-col items-center animate-in fade-in zoom-in duration-200 border border-red-100 mx-1">
-                            <p className="text-xs text-red-800 font-medium mb-3 text-center">Czy na pewno chcesz usunąć to miejsce?</p>
+                          <div className="bg-error/15 p-3 rounded-lg flex flex-col items-center animate-in fade-in zoom-in duration-200 border border-error/40 mx-1">
+                            <p className="text-xs text-error font-medium mb-3 text-center">Czy na pewno chcesz usunąć to miejsce?</p>
                             <div className="flex gap-2 w-full">
-                              <button 
-                                onClick={() => setDeleteConfirmId(null)} 
-                                className="flex-1 bg-white border border-red-200 text-gray-700 py-1.5 rounded-md text-xs font-medium hover:bg-gray-50 cursor-pointer"
+                              <button
+                                onClick={() => setDeleteConfirmId(null)}
+                                className="flex-1 bg-base-200 border border-error/30 text-base-content/70 py-1.5 rounded-md text-xs font-medium hover:bg-base-300 cursor-pointer"
                               >
                                 Anuluj
                               </button>
-                              <button 
-                                onClick={() => executeDeletePending(place.id)} 
-                                className="flex-1 bg-red-600 text-white py-1.5 rounded-md text-xs font-bold hover:bg-red-700 cursor-pointer"
+                              <button
+                                onClick={() => executeDeletePending(place.id)}
+                                className="flex-1 bg-error hover:bg-error/90 text-error-content py-1.5 rounded-md text-xs font-bold cursor-pointer"
                               >
                                 Tak, usuń
                               </button>
@@ -452,31 +466,31 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           )}
 
           {/* 1. Folders / Trips Accordion */}
-          <div className="border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm">
-            <button 
-              onClick={() => setIsTripsOpen(!isTripsOpen)} 
-              className="w-full flex justify-between items-center p-3.5 bg-white hover:bg-gray-50 font-semibold text-gray-700 transition-colors cursor-pointer border-b border-gray-100"
+          <div className="border border-base-300 rounded-xl overflow-hidden bg-base-200 shadow-sm">
+            <button
+              onClick={() => setIsTripsOpen(!isTripsOpen)}
+              className="w-full flex justify-between items-center p-3.5 bg-base-200 hover:bg-base-300 font-semibold text-base-content/80 transition-colors cursor-pointer border-b border-base-300"
             >
               <div className="flex items-center gap-2">
-                <span className="text-xl">📁</span>
+                <Folder size={16} />
                 <span>Moje zakładki</span>
               </div>
-              <span className="text-xs text-gray-400">{isTripsOpen ? '▼' : '▶'}</span>
+              <span className="text-xs text-muted">{isTripsOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</span>
             </button>
-            
+
             {isTripsOpen && (
-              <div className="p-3 bg-gray-50/50">
+              <div className="p-3 bg-base-100/50">
                 {isLoading ? (
-                  <p className="text-sm text-gray-500 text-center py-2">Ładowanie...</p>
+                  <p className="text-sm text-base-content/70 text-center py-2">Ładowanie...</p>
                 ) : trips.length === 0 ? (
-                  <p className="text-sm text-gray-500 text-center py-2">Brak zakładek.</p>
+                  <p className="text-sm text-base-content/70 text-center py-2">Brak zakładek.</p>
                 ) : (
                   renderTree(null, 0)
                 )}
-                
-                <button 
+
+                <button
                   onClick={() => openModal(router, "add-trip")}
-                  className="w-full mt-3 py-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-sm font-bold rounded-lg transition-colors cursor-pointer shadow-sm"
+                  className="w-full mt-3 py-2 bg-base-200 border border-base-300 hover:bg-base-300 text-base-content/80 text-sm font-bold rounded-lg transition-colors cursor-pointer shadow-sm"
                 >
                   + Nowy folder
                 </button>
@@ -485,44 +499,44 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           </div>
 
           {/* 2. Tags & Categories Accordion */}
-          <div className="border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm">
-            <button 
-              onClick={() => setIsTagsOpen(!isTagsOpen)} 
-              className="w-full flex justify-between items-center p-3.5 bg-white hover:bg-gray-50 font-semibold text-gray-700 transition-colors cursor-pointer border-b border-gray-100"
+          <div className="border border-base-300 rounded-xl overflow-hidden bg-base-200 shadow-sm">
+            <button
+              onClick={() => setIsTagsOpen(!isTagsOpen)}
+              className="w-full flex justify-between items-center p-3.5 bg-base-200 hover:bg-base-300 font-semibold text-base-content/80 transition-colors cursor-pointer border-b border-base-300"
             >
               <div className="flex items-center gap-2">
-                <span className="text-xl">🏷️</span>
+                <Tag size={16} />
                 <span>Tagi i Kategorie</span>
               </div>
-              <span className="text-xs text-gray-400">{isTagsOpen ? '▼' : '▶'}</span>
+              <span className="text-xs text-muted">{isTagsOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</span>
             </button>
-            
+
             {isTagsOpen && (
-              <div className="p-3 bg-gray-50/50 space-y-3">
+              <div className="p-3 bg-base-100/50 space-y-3">
                 {/* Tag filtering list */}
                 <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
                   {categories.map(cat => (
-                    <label key={cat.id} className="flex items-center gap-2.5 p-2 rounded hover:bg-gray-100 cursor-pointer transition-colors border border-transparent">
-                      <input 
-                        type="checkbox" 
+                    <label key={cat.id} className="flex items-center gap-2.5 p-2 rounded hover:bg-base-300 cursor-pointer transition-colors border border-transparent">
+                      <input
+                        type="checkbox"
                         checked={selectedTags.has(cat.id)}
                         onChange={() => handleTagToggle(cat.id)}
-                        className="w-4 h-4 text-blue-600 rounded border-gray-300 cursor-pointer" 
+                        className="checkbox checkbox-primary checkbox-sm cursor-pointer"
                       />
                       <span className="text-base leading-none">{cat.icon}</span>
-                      <span className="text-sm font-medium text-gray-700 truncate">{cat.name}</span>
+                      <span className="text-sm font-medium text-base-content/80 truncate">{cat.name}</span>
                     </label>
                   ))}
                   {categories.length === 0 && !isLoading && (
-                    <p className="text-sm text-gray-500 text-center py-2">Brak tagów.</p>
+                    <p className="text-sm text-base-content/70 text-center py-2">Brak tagów.</p>
                   )}
                 </div>
 
-                <button 
+                <button
                   onClick={() => openModal(router, "manage-tags")}
-                  className="w-full py-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-sm font-bold rounded-lg transition-colors cursor-pointer shadow-sm flex items-center justify-center gap-2"
+                  className="w-full py-2 bg-base-200 border border-base-300 hover:bg-base-300 text-base-content/80 text-sm font-bold rounded-lg transition-colors cursor-pointer shadow-sm flex items-center justify-center gap-2"
                 >
-                  <span>⚙️</span> Zarządzaj tagami
+                  <Settings size={16} /> Zarządzaj tagami
                 </button>
               </div>
             )}

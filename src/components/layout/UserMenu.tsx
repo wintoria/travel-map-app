@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import { openModal } from "@/lib/url";
+import { Smartphone, Download, LogOut } from "lucide-react";
 
 // The non-standard PWA install prompt event (not yet in TS DOM lib).
 interface BeforeInstallPromptEvent extends Event {
@@ -61,46 +62,46 @@ export default function UserMenu() {
 
   return (
     <div className="relative" ref={menuRef}>
-      <button 
+      <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-lg hover:bg-blue-700 transition-colors shadow-sm cursor-pointer"
+        className="w-10 h-10 rounded-full bg-primary text-primary-content flex items-center justify-center font-bold text-lg hover:bg-primary/90 transition-colors shadow-sm cursor-pointer"
         title={email}
       >
         {email ? email.charAt(0).toUpperCase() : "U"}
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden z-50">
-          <div className="px-4 py-3 bg-gray-50 border-b border-gray-100">
-            <p className="text-xs font-medium text-gray-500 uppercase">Zalogowano jako</p>
-            <p className="text-sm font-bold text-gray-800 truncate mt-0.5">{email}</p>
+        <div className="absolute right-0 mt-2 w-56 bg-base-200 rounded-xl shadow-lg border border-base-300 overflow-hidden z-50">
+          <div className="px-4 py-3 bg-base-300 border-b border-base-300">
+            <p className="text-xs font-medium text-base-content/70 uppercase">Zalogowano jako</p>
+            <p className="text-sm font-bold text-base-content truncate mt-0.5">{email}</p>
           </div>
-          
+
           <div className="p-2 flex flex-col gap-1">
             {/* PWA Install Button (visible only when ready) */}
             {deferredPrompt && (
-              <button 
+              <button
                 onClick={handleInstallClick}
-                className="flex items-center gap-3 w-full px-3 py-2 text-sm font-bold text-blue-600 hover:bg-blue-50 rounded-md transition-colors text-left cursor-pointer"
+                className="flex items-center gap-3 w-full px-3 py-2 text-sm font-bold text-primary hover:bg-primary/10 rounded-md transition-colors text-left cursor-pointer"
               >
-                <span>📱</span> Zainstaluj aplikację
+                <Smartphone size={16} /> Zainstaluj aplikację
               </button>
             )}
-            <button 
+            <button
               onClick={() => {
                 setIsOpen(false);
                 openModal(router, "import-google");
               }}
-              className="flex items-center gap-3 w-full px-3 py-2 text-sm font-bold text-gray-700 hover:bg-gray-100 rounded-md transition-colors text-left cursor-pointer"
+              className="flex items-center gap-3 w-full px-3 py-2 text-sm font-bold text-base-content hover:bg-base-300 rounded-md transition-colors text-left cursor-pointer"
             >
-              <span>⬇️</span> Importuj z Google
+              <Download size={16} /> Importuj z Google
             </button>
-            
-            <button 
-              onClick={() => supabase.auth.signOut()} 
-              className="flex items-center gap-3 w-full px-3 py-2 text-sm font-bold text-red-600 hover:bg-red-50 rounded-md transition-colors text-left cursor-pointer"
+
+            <button
+              onClick={() => supabase.auth.signOut()}
+              className="flex items-center gap-3 w-full px-3 py-2 text-sm font-bold text-error hover:bg-error/10 rounded-md transition-colors text-left cursor-pointer"
             >
-              <span>🚪</span> Wyloguj się
+              <LogOut size={16} /> Wyloguj się
             </button>
           </div>
         </div>

@@ -31,7 +31,7 @@ export function getContrastColor(hexColor: string, threshold = 180): "#000000" |
 export function effectiveTagColor(rawColor: string | null | undefined): string {
   const color = rawColor || "#ffffff";
   const isWhite = color.toLowerCase().includes("ffffff") || color.trim().toLowerCase() === "white";
-  return isWhite ? "#e5e7eb" : color;
+  return isWhite ? "#8A9295" : color;
 }
 
 // Google-Maps-style category colors for map marker circles. Curated by emoji so a marker's color

@@ -53,14 +53,14 @@ function LocateControl() {
           center={position}
           radius={8}
           pathOptions={{
-            fillColor: "#3b82f6",
+            fillColor: "#526B55",
             fillOpacity: 1,
             color: "#ffffff",
             weight: 3,
           }}
         >
           <Popup>
-            <span className="font-bold text-gray-800">Tu jesteś!</span>
+            <span className="font-bold text-base-content">Tu jesteś!</span>
           </Popup>
         </CircleMarker>
       )}
@@ -80,10 +80,25 @@ function LocateControl() {
               e.preventDefault();
               map.locate({ setView: true, maxZoom: 14 });
             }}
-            className="flex items-center justify-center text-xl bg-white text-gray-700 hover:text-blue-600 transition-colors !no-underline"
-            style={{ width: '34px', height: '34px' }}
+            className="transition-colors !no-underline hover:text-[#526B55]"
+            style={{
+              width: '34px',
+              height: '34px',
+              background: '#17201C',
+              color: '#F0EDE3',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              lineHeight: 'normal',
+            }}
           >
-            🎯
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
+              <line x1="2" x2="5" y1="12" y2="12" />
+              <line x1="19" x2="22" y1="12" y2="12" />
+              <line x1="12" x2="12" y1="2" y2="5" />
+              <line x1="12" x2="12" y1="19" y2="22" />
+              <circle cx="12" cy="12" r="7" />
+            </svg>
           </a>
         </div>
       </div>

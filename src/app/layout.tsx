@@ -11,14 +11,11 @@ export const metadata: Metadata = {
   description: "Nasza prywatna mapa podróży",
   // Add the manifest for PWA support
   manifest: "/manifest.json",
-  icons: {
-    icon: "/icon-512x512.png",
-    apple: "/icon-512x512.png",
-  },
+  // Favicon/apple-touch-icon are auto-generated from app/icon.png and app/apple-icon.png
 };
 
 export const viewport = {
-  themeColor: "#2563eb",
+  themeColor: "#111815",
 };
 
 export default function RootLayout({
@@ -27,16 +24,22 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="pl">
-      <body className="bg-gray-50 text-gray-900 antialiased">
+    <html lang="pl" data-theme="forest">
+      <body className="bg-base-100 text-base-content antialiased">
         <Toaster
           position="bottom-center"
           containerStyle={{ zIndex: 99999 }}
           toastOptions={{
             duration: 4000,
-            style: { fontSize: "0.875rem", maxWidth: "24rem" },
-            success: { iconTheme: { primary: "#16a34a", secondary: "#fff" } },
-            error: { iconTheme: { primary: "#dc2626", secondary: "#fff" } },
+            style: {
+              fontSize: "0.875rem",
+              maxWidth: "24rem",
+              background: "#17201C",
+              color: "#F0EDE3",
+              border: "1px solid #26352D",
+            },
+            success: { iconTheme: { primary: "#6F8F63", secondary: "#F0EDE3" } },
+            error: { iconTheme: { primary: "#9A514F", secondary: "#F0EDE3" } },
           }}
         />
         <AuthWrapper>

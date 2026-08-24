@@ -32,7 +32,7 @@ function HomeContent() {
       <Link
         href={`?view=${view}&modal=add-place`}
         scroll={false}
-        className="fixed bottom-26 right-6 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg flex items-center justify-center text-3xl pb-1 z-40 hover:bg-blue-700 transition-colors"
+        className="fixed bottom-26 right-6 w-14 h-14 bg-primary text-primary-content rounded-full shadow-lg flex items-center justify-center text-3xl pb-1 z-40 hover:bg-primary/90 transition-colors"
       >
         +
       </Link>
