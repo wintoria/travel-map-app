@@ -8,6 +8,9 @@ import { AppEvent, emit } from "@/lib/events";
 import { closeModal, openModal } from "@/lib/url";
 import { fetchTripsBasic } from "@/lib/api/trips";
 import { fetchPlaceWithCategories, updatePlace, type EditPlace } from "@/lib/api/places";
+import { PENDING_SYNC_MESSAGE } from "@/lib/offline/network";
+import { notifyPendingSync } from "@/lib/toast";
+import toast from "react-hot-toast";
 import type { Trip } from "@/lib/types";
 
 // A geocoding result from leaflet-geosearch (coordinates in y/x).
@@ -98,7 +101,7 @@ export default function EditPlaceModal() {
 
       // Update the place (handles a new attachment upload, DB update and category relations,
       // and transparently queues everything for later sync if we're offline)
-      await updatePlace(
+      const updated = await updatePlace(
         placeId as string,
         { name, trip_id, lat, lng, address, duration, note, google_maps_url: googleMapsUrl, additional_link: additionalInfo },
         file && file.size > 0 ? file : null,
@@ -106,16 +109,15 @@ export default function EditPlaceModal() {
         place?.attached_file ?? null
       );
 
-      // Force Next.js to purge client cache before navigating back
-      router.refresh();
-
       // Return to details modal and refresh map in the background
       handleBackToDetails();
       setTimeout(() => emit(AppEvent.placesUpdated), 300);
 
+      if (updated._pendingSync) notifyPendingSync(PENDING_SYNC_MESSAGE);
+
     } catch (error) {
       console.error("Update error:", error);
-      alert("Wystąpił błąd podczas aktualizacji.");
+      toast.error("Wystąpił błąd podczas aktualizacji.");
     } finally {
       setIsSubmitting(false);
     }

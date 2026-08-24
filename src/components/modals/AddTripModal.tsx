@@ -5,6 +5,9 @@ import { childrenOf } from "@/lib/tree";
 import { AppEvent, emit } from "@/lib/events";
 import { closeModal } from "@/lib/url";
 import { fetchTripsBasic, createTrip } from "@/lib/api/trips";
+import { PENDING_SYNC_MESSAGE } from "@/lib/offline/network";
+import { notifyPendingSync } from "@/lib/toast";
+import toast from "react-hot-toast";
 import type { Trip } from "@/lib/types";
 
 type TripOption = Pick<Trip, "id" | "name" | "icon" | "parent_id">;
@@ -36,7 +39,7 @@ export default function AddTripModal() {
       const icon = formData.get("icon") as string;
       const parentId = formData.get("parentId") as string;
 
-      await createTrip({
+      const trip = await createTrip({
         name,
         icon: icon || null,
         parent_id: parentId || null,
@@ -46,9 +49,11 @@ export default function AddTripModal() {
       emit(AppEvent.tripsUpdated);
       handleClose();
 
+      if (trip._pendingSync) notifyPendingSync(PENDING_SYNC_MESSAGE);
+
     } catch (error) {
       console.error("Insert error:", error);
-      alert("Wystąpił błąd podczas dodawania zakładki.");
+      toast.error("Wystąpił błąd podczas dodawania zakładki.");
     } finally {
       setIsSubmitting(false);
     }

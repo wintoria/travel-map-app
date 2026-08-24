@@ -1,7 +1,7 @@
 import { supabase } from "@/lib/supabase";
 import type { Place, Category } from "@/lib/types";
 import { uploadAttachment } from "@/lib/api/storage";
-import { isNetworkError } from "@/lib/offline/network";
+import { isNetworkError, isOffline } from "@/lib/offline/network";
 import {
   cachePlaces,
   getCachedPlaces,
@@ -32,6 +32,7 @@ export async function fetchFilteredPlaces(filters: PlaceFilters): Promise<Place[
   const { trips, tags, query: searchParam, isEmpty } = filters;
 
   if (isEmpty) return [];
+  if (isOffline()) return offlineFilteredPlaces(filters);
 
   let query = supabase
     .from("places")
@@ -124,6 +125,7 @@ export function resolvePlaceFilters(event?: Event): PlaceFilters {
 // Full, unfiltered place list — used to keep the offline IndexedDB mirror warm regardless of the
 // currently active filter (see PlaceList/PlacesMarkers' fire-and-forget call on mount).
 export async function fetchAllPlaces(): Promise<Place[]> {
+  if (isOffline()) return getCachedPlaces();
   const { data, error } = await supabase.from("places").select("*").order("created_at", { ascending: false });
   if (error) {
     console.error("Fetch all places error:", error);
@@ -143,6 +145,10 @@ export async function fetchPlaceRemoteById(id: string): Promise<Place | null> {
 
 // Places missing coordinates ("pending" list in the sidebar).
 export async function fetchPendingPlaces(): Promise<Pick<Place, "id" | "name" | "note">[]> {
+  if (isOffline()) {
+    const cached = await getCachedPlaces();
+    return cached.filter((p) => p.lat === null).map(({ id, name, note }) => ({ id, name, note }));
+  }
   const { data, error } = await supabase
     .from("places")
     .select("id, name, note")
@@ -160,8 +166,20 @@ export async function fetchPendingPlaces(): Promise<Pick<Place, "id" | "name" | 
 // A place plus its category relations, as fetched for the edit form.
 export type EditPlace = Place & { place_categories?: { category_id: string }[] };
 
+async function offlinePlaceWithCategories(id: string): Promise<EditPlace | null> {
+  const [places, placeCategories] = await Promise.all([getCachedPlaces(), getCachedPlaceCategories()]);
+  const place = places.find((p) => p.id === id);
+  if (!place) return null;
+  return {
+    ...place,
+    place_categories: placeCategories.filter((pc) => pc.place_id === id).map((pc) => ({ category_id: pc.category_id })),
+  };
+}
+
 export async function fetchPlaceWithCategories(id: string): Promise<EditPlace | null> {
   const realId = id; // ids are stable from creation now (client-generated) — no remapping needed
+  if (isOffline()) return offlinePlaceWithCategories(realId);
+
   const { data, error } = await supabase
     .from("places")
     .select(`*, place_categories ( category_id )`)
@@ -170,15 +188,7 @@ export async function fetchPlaceWithCategories(id: string): Promise<EditPlace | 
 
   if (error) {
     if (!isNetworkError(error)) return null;
-    const [places, placeCategories] = await Promise.all([getCachedPlaces(), getCachedPlaceCategories()]);
-    const place = places.find((p) => p.id === realId);
-    if (!place) return null;
-    return {
-      ...place,
-      place_categories: placeCategories
-        .filter((pc) => pc.place_id === realId)
-        .map((pc) => ({ category_id: pc.category_id })),
-    };
+    return offlinePlaceWithCategories(realId);
   }
   return data as EditPlace;
 }
@@ -191,6 +201,8 @@ export type PlaceDetails = Place & {
 
 export async function fetchPlaceDetails(id: string): Promise<PlaceDetails | null> {
   const realId = id; // ids are stable from creation now (client-generated) — no remapping needed
+  if (isOffline()) return offlinePlaceDetails(realId);
+
   const { data, error } = await supabase
     .from("places")
     .select(`*, place_categories ( categories (*) )`)

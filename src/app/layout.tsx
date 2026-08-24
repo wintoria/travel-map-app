@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Toaster } from "react-hot-toast";
 import "./globals.css";
 import "leaflet/dist/leaflet.css";
 import Topbar from "@/components/layout/Topbar";
@@ -28,9 +29,19 @@ export default function RootLayout({
   return (
     <html lang="pl">
       <body className="bg-gray-50 text-gray-900 antialiased">
+        <Toaster
+          position="bottom-center"
+          containerStyle={{ zIndex: 99999 }}
+          toastOptions={{
+            duration: 4000,
+            style: { fontSize: "0.875rem", maxWidth: "24rem" },
+            success: { iconTheme: { primary: "#16a34a", secondary: "#fff" } },
+            error: { iconTheme: { primary: "#dc2626", secondary: "#fff" } },
+          }}
+        />
         <AuthWrapper>
           <Topbar />
-          
+
           <div className="pt-16 pb-16 min-h-screen flex flex-col">
             {children}
           </div>

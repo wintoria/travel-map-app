@@ -1,3 +1,6 @@
+"use client";
+import { Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import Map from "@/components/map/Map";
 import PlaceList from "@/components/list/PlaceList";
 import Link from "next/link";
@@ -11,15 +14,16 @@ import ManageTagsModal from "@/components/tags/ManageTagsModal";
 import ShareTripModal from "@/components/modals/ShareTripModal";
 import ImportModal from "@/components/modals/ImportModal";
 
-export default async function Home({
-  searchParams,
-}: {
-  searchParams: Promise<{ view?: string; modal?: string; trips?: string }>;
-}) {
-  const params = await searchParams;
-  const view = params.view || "map";
-  const showModal = params.modal === "add-place";
-  
+// Client component reading searchParams via the hook (not the server `searchParams` prop) so that
+// switching view/modal is a pure client-side re-render — no Next.js RSC round-trip. That round-trip
+// is exactly what broke opening a place while offline: it would fail and fall back to a full page
+// load, landing on the offline fallback instead of the app with the cached place data.
+function HomeContent() {
+  const searchParams = useSearchParams();
+  const view = searchParams.get("view") || "map";
+  const showAddModal = searchParams.get("modal") === "add-place";
+  const showManageTags = searchParams.get("modal") === "manage-tags";
+
   return (
     <main className="flex-1 flex flex-col p-4 relative overflow-hidden">
       {view === "map" ? <Map /> : <PlaceList />}
@@ -33,8 +37,8 @@ export default async function Home({
         +
       </Link>
 
-      {/* Form modal (renders only when showModal is true) */}
-      {showModal && <AddPlaceModal currentView={view} />}
+      {/* Form modal (renders only when showAddModal is true) */}
+      {showAddModal && <AddPlaceModal currentView={view} />}
 
       <ViewPlaceModal />
 
@@ -48,11 +52,19 @@ export default async function Home({
       <EditTripModal />
 
       {/* Render ManageTagsModal when URL param matches */}
-      {params.modal === "manage-tags" && <ManageTagsModal />}
+      {showManageTags && <ManageTagsModal />}
 
       <ShareTripModal />
 
       <ImportModal />
     </main>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={null}>
+      <HomeContent />
+    </Suspense>
   );
 }

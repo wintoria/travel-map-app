@@ -1,6 +1,17 @@
 "use client";
 import { useEffect, useState } from "react";
 
+// Quick upfront check so offline-aware reads can skip the network attempt entirely and go straight
+// to the IndexedDB cache — instant instead of waiting on a fetch that's going to fail anyway.
+export function isOffline(): boolean {
+  return typeof navigator !== "undefined" && !navigator.onLine;
+}
+
+// Shown after a create/update that got queued instead of applied live (the mutation's returned row
+// carries `_pendingSync: true` in that case) — tells the user their edit is safe, not lost.
+export const PENDING_SYNC_MESSAGE =
+  "Jesteś offline — zmiana została zapisana lokalnie i zsynchronizuje się automatycznie, gdy wrócisz do sieci.";
+
 // Supabase (postgrest-js and storage-js) does NOT throw on a network failure by default — it resolves
 // with `{ data: null, error }` where `error` wraps the underlying fetch TypeError (postgrest-js also
 // sets `status: 0`). This checks that error shape (plus a live navigator.onLine read) to distinguish a

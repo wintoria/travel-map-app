@@ -3,6 +3,9 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { getContrastColor, effectiveTagColor } from "@/lib/color";
 import { fetchCategories as loadCategories, updateCategory, deleteCategory } from "@/lib/api/categories";
+import { isOffline, PENDING_SYNC_MESSAGE } from "@/lib/offline/network";
+import { notifyPendingSync } from "@/lib/toast";
+import toast from "react-hot-toast";
 import type { Category } from "@/lib/types";
 
 export default function ManageTagsModal() {
@@ -32,10 +35,16 @@ export default function ManageTagsModal() {
 
   const confirmDelete = async (id: string) => {
     // Perform the actual deletion after confirmation
-    await deleteCategory(id);
-    setCategories(prev => prev.filter(cat => cat.id !== id));
+    const { error } = await deleteCategory(id);
     setDeletingId(null);
-    router.refresh();
+
+    if (error) {
+      console.error("Delete category error:", error);
+      toast.error("Nie udało się usunąć tagu.");
+      return;
+    }
+    setCategories(prev => prev.filter(cat => cat.id !== id));
+    if (isOffline()) notifyPendingSync(PENDING_SYNC_MESSAGE);
   };
 
   const startEdit = (cat: Category) => {
@@ -55,9 +64,10 @@ export default function ManageTagsModal() {
       const updated = await updateCategory(id, { name: editName.trim(), icon: editIcon, color: editColor });
       setCategories(prev => prev.map(c => c.id === id ? updated : c));
       setEditingId(null);
-      router.refresh();
+      if (updated._pendingSync) notifyPendingSync(PENDING_SYNC_MESSAGE);
     } catch (error) {
       console.error("Update category error:", error);
+      toast.error("Nie udało się zaktualizować tagu.");
     }
   };
 

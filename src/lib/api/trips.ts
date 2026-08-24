@@ -1,11 +1,12 @@
 import { supabase } from "@/lib/supabase";
 import type { Trip } from "@/lib/types";
-import { isNetworkError } from "@/lib/offline/network";
+import { isNetworkError, isOffline } from "@/lib/offline/network";
 import { cacheTrips, getCachedTrips, upsertCachedTrip, removeCachedTrip, removeCachedTripCascade } from "@/lib/offline/cache";
 import { enqueueOperation } from "@/lib/offline/queue";
 
 // Full trip rows ordered by creation (sidebar tree, dropdowns).
 export async function fetchTrips(): Promise<Trip[]> {
+  if (isOffline()) return getCachedTrips();
   const { data, error } = await supabase.from("trips").select("*").order("created_at", { ascending: true });
   if (error) {
     if (!isNetworkError(error)) return [];
@@ -18,6 +19,7 @@ export async function fetchTrips(): Promise<Trip[]> {
 
 // Lightweight id/name/icon rows for dropdowns and grouping headers.
 export async function fetchTripsBasic(): Promise<Pick<Trip, "id" | "name" | "icon" | "parent_id">[]> {
+  if (isOffline()) return getCachedTrips();
   const { data, error } = await supabase.from("trips").select("id, name, icon, parent_id");
   if (error) {
     if (!isNetworkError(error)) return [];

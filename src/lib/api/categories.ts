@@ -1,11 +1,12 @@
 import { supabase } from "@/lib/supabase";
 import type { Category } from "@/lib/types";
-import { isNetworkError } from "@/lib/offline/network";
+import { isNetworkError, isOffline } from "@/lib/offline/network";
 import { cacheCategories, getCachedCategories, upsertCachedCategory, removeCachedCategoryCascade } from "@/lib/offline/cache";
 import { enqueueOperation } from "@/lib/offline/queue";
 
 // All categories (tags) ordered by name.
 export async function fetchCategories(): Promise<Category[]> {
+  if (isOffline()) return getCachedCategories();
   const { data, error } = await supabase.from("categories").select("*").order("name");
   if (error) {
     if (!isNetworkError(error)) return [];

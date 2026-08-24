@@ -5,6 +5,9 @@ import { childrenOf } from "@/lib/tree";
 import { AppEvent, emit } from "@/lib/events";
 import { closeModal } from "@/lib/url";
 import { fetchTrips, fetchTripsBasic, updateTrip, deleteTrip } from "@/lib/api/trips";
+import { isOffline, PENDING_SYNC_MESSAGE } from "@/lib/offline/network";
+import { notifyPendingSync } from "@/lib/toast";
+import toast from "react-hot-toast";
 import type { Trip } from "@/lib/types";
 
 type TripOption = Pick<Trip, "id" | "name" | "icon" | "parent_id">;
@@ -55,7 +58,7 @@ export default function EditTripModal() {
       const icon = formData.get("icon") as string;
       const parentId = formData.get("parentId") as string;
 
-      await updateTrip(tripId as string, {
+      const trip = await updateTrip(tripId as string, {
         name,
         icon: icon || null,
         parent_id: parentId || null,
@@ -65,9 +68,11 @@ export default function EditTripModal() {
       emit(AppEvent.tripsUpdated);
       emit(AppEvent.filtersChanged);
       handleClose();
+
+      if (trip._pendingSync) notifyPendingSync(PENDING_SYNC_MESSAGE);
     } catch (error) {
       console.error("Update error:", error);
-      alert("Wystąpił błąd podczas zapisywania zakładki.");
+      toast.error("Wystąpił błąd podczas zapisywania zakładki.");
     } finally {
       setIsSubmitting(false);
     }
@@ -82,12 +87,13 @@ export default function EditTripModal() {
 
     if (error) {
       console.error("Delete error:", error);
-      alert("Nie można usunąć zakładki. Upewnij się, że nie zawiera innych podzakładek.");
+      toast.error("Nie można usunąć zakładki. Upewnij się, że nie zawiera innych podzakładek.");
       setIsSubmitting(false);
     } else {
       emit(AppEvent.tripsUpdated);
       emit(AppEvent.filtersChanged);
       handleClose();
+      if (isOffline()) notifyPendingSync(PENDING_SYNC_MESSAGE);
     }
   };
 

@@ -5,6 +5,9 @@ import { getContrastColor, effectiveTagColor } from "@/lib/color";
 import { deletePlace, fetchPlaceDetails, updatePlaceVisited, type PlaceDetails } from "@/lib/api/places";
 import { AppEvent, emit } from "@/lib/events";
 import { closeModal, openModal } from "@/lib/url";
+import { isOffline, PENDING_SYNC_MESSAGE } from "@/lib/offline/network";
+import { notifyPendingSync } from "@/lib/toast";
+import toast from "react-hot-toast";
 import type { Category } from "@/lib/types";
 
 export default function ViewPlaceModal() {
@@ -45,8 +48,10 @@ export default function ViewPlaceModal() {
     if (!error) {
       emit(AppEvent.placesUpdated); // Refresh map markers
       handleClose(); // Close modal quietly
+      if (isOffline()) notifyPendingSync(PENDING_SYNC_MESSAGE);
     } else {
       console.error("Delete error:", error);
+      toast.error("Nie udało się usunąć miejsca.");
       setIsLoading(false);
     }
   };
@@ -65,10 +70,12 @@ export default function ViewPlaceModal() {
     try {
       await updatePlaceVisited(place.id, newStatus);
       emit(AppEvent.placesUpdated);
+      if (isOffline()) notifyPendingSync(PENDING_SYNC_MESSAGE);
     } catch (error) {
-      // Revert if the update fails (a non-network error — an offline write is queued, not rejected)
+      // Revert if the update fails (a conflict — someone else's newer edit already won)
       setPlace({ ...place, visited: !newStatus });
       console.error("Failed to toggle visited status", error);
+      toast.error("Nie udało się zaktualizować statusu — zmieniono w międzyczasie na innym urządzeniu.");
     }
   };
 

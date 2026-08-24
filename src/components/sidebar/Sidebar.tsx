@@ -9,6 +9,7 @@ import { fetchPendingPlaces as loadPendingPlaces, deletePlace, updatePlaceCoords
 import { getAllDescendants } from "@/lib/tree";
 import { AppEvent, emit } from "@/lib/events";
 import { currentParams, openModal, pushParams } from "@/lib/url";
+import toast from "react-hot-toast";
 import type { Category, Place, Trip } from "@/lib/types";
 
 interface SidebarProps {
@@ -120,7 +121,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       setDeleteConfirmId(null);
       emit(AppEvent.placesUpdated);
     } else {
-      alert("Błąd podczas usuwania.");
+      toast.error("Błąd podczas usuwania.");
     }
   };
 

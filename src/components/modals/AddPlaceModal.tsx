@@ -8,6 +8,9 @@ import { childrenOf } from "@/lib/tree";
 import { AppEvent, emit } from "@/lib/events";
 import { fetchTripsBasic } from "@/lib/api/trips";
 import { createPlace } from "@/lib/api/places";
+import { PENDING_SYNC_MESSAGE } from "@/lib/offline/network";
+import { notifyPendingSync } from "@/lib/toast";
+import toast from "react-hot-toast";
 import type { Trip } from "@/lib/types";
 
 type TripOption = Pick<Trip, "id" | "name" | "icon" | "parent_id">;
@@ -84,7 +87,7 @@ export default function AddPlaceModal({ currentView }: { currentView: string }) 
 
       // Create the place (handles the attachment upload, DB insert and category relations,
       // and transparently queues everything for later sync if we're offline)
-      await createPlace(
+      const created = await createPlace(
         {
           trip_id,
           name,
@@ -103,16 +106,17 @@ export default function AddPlaceModal({ currentView }: { currentView: string }) 
 
       // Close the modal immediately so it feels fast
       router.push(`?view=${currentView}`, { scroll: false });
-      router.refresh();
 
       // Delay the refresh signal slightly so database and cache can sync
       setTimeout(() => {
         emit(AppEvent.placesUpdated);
       }, 300);
 
+      if (created._pendingSync) notifyPendingSync(PENDING_SYNC_MESSAGE);
+
     } catch (error) {
       console.error("Save error:", error);
-      alert("Failed to save the place. Check the console.");
+      toast.error("Nie udało się zapisać miejsca.");
     } finally {
       setIsSubmitting(false);
     }

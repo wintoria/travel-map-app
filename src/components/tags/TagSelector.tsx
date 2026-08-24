@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { getBrightness, effectiveTagColor } from "@/lib/color";
 import { fetchCategories, createCategory } from "@/lib/api/categories";
+import toast from "react-hot-toast";
 import type { Category } from "@/lib/types";
 
 export default function TagSelector({ initialSelected = [] }: { initialSelected?: string[] }) {
@@ -34,6 +35,7 @@ export default function TagSelector({ initialSelected = [] }: { initialSelected?
       setNewName("");
     } catch (error) {
       console.error("Create category error:", error);
+      toast.error("Nie udało się utworzyć tagu.");
     }
   };
 
