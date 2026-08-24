@@ -22,17 +22,19 @@ function LocateControl() {
   // State to hold the exact user coordinates
   const [position, setPosition] = useState<L.LatLng | null>(null);
 
-  // Center map on user location on initial load and listen for location
+  // Center map on user location on initial load, then keep watching so the dot
+  // stays live as the user moves (continuous GPS updates, not a one-off lookup).
   useEffect(() => {
-    map.locate({ setView: true, maxZoom: 14 });
+    map.locate({ watch: true, setView: true, maxZoom: 14 });
 
-    // When location is found, save it to state
+    // When location is found (initial fix and every subsequent watch update), save it to state
     map.on("locationfound", (e) => {
       setPosition(e.latlng);
     });
 
-    // Cleanup listener on unmount
+    // Stop watching and remove the listener on unmount
     return () => {
+      map.stopLocate();
       map.off("locationfound");
     };
   }, [map]);
@@ -78,7 +80,7 @@ function LocateControl() {
             title="Moja lokalizacja"
             onClick={(e) => {
               e.preventDefault();
-              map.locate({ setView: true, maxZoom: 14 });
+              map.locate({ watch: true, setView: true, maxZoom: 14 });
             }}
             className="transition-colors !no-underline hover:text-[#526B55]"
             style={{
