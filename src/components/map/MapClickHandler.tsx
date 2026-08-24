@@ -5,53 +5,79 @@ import type { Marker as LeafletMarker } from "leaflet";
 import { useRouter, useSearchParams } from "next/navigation";
 import { openModal } from "@/lib/url";
 
+// Hold the map down this long to drop a pin — a plain click no longer opens "add place", so
+// panning/tapping the map doesn't accidentally trigger it.
+const LONG_PRESS_MS = 500;
+
 export default function MapClickHandler() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const markerRef = useRef<LeafletMarker>(null);
-  
+  const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // State to hold the clicked location and fetched data
   const [clickData, setClickData] = useState<{lat: number, lng: number, name: string, address: string} | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
+  const dropPinAt = async (lat: number, lng: number) => {
+    // Do nothing if a modal is already open
+    if (searchParams.get("modal")) return;
+
+    // Place a temporary pin and show loading state
+    setClickData({ lat, lng, name: "", address: "Pobieranie adresu..." });
+    setIsLoading(true);
+
+    try {
+      // Reverse Geocoding: Ask OpenStreetMap what is at these coordinates
+      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`);
+      const data = await res.json();
+
+      // Try to extract a logical POI name (if it exists)
+      let placeName = "";
+      if (data.name) {
+        placeName = data.name;
+      } else if (data.address) {
+        placeName = data.address.amenity || data.address.tourism || data.address.shop || data.address.building || "";
+      }
+
+      // Get the full display address
+      const address = data.display_name || "";
+
+      // Update the pin with real data
+      setClickData({ lat, lng, name: placeName, address });
+    } catch (error) {
+      console.error("Geocoding error:", error);
+      setClickData({ lat, lng, name: "", address: "Nie udało się pobrać adresu." });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const clearPressTimer = () => {
+    if (pressTimer.current) {
+      clearTimeout(pressTimer.current);
+      pressTimer.current = null;
+    }
+  };
+
   // Hook into map events and get the map instance
   const map = useMapEvents({
-    async click(e) {
-      // Do nothing if a modal is already open
+    mousedown(e) {
       if (searchParams.get("modal")) return;
-
       const { lat, lng } = e.latlng;
-      
-      // Place a temporary pin and show loading state
-      setClickData({ lat, lng, name: "", address: "Pobieranie adresu..." });
-      setIsLoading(true);
-
-      try {
-        // Reverse Geocoding: Ask OpenStreetMap what is at these coordinates
-        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`);
-        const data = await res.json();
-
-        // Try to extract a logical POI name (if it exists)
-        let placeName = "";
-        if (data.name) {
-          placeName = data.name;
-        } else if (data.address) {
-          placeName = data.address.amenity || data.address.tourism || data.address.shop || data.address.building || "";
-        }
-
-        // Get the full display address
-        const address = data.display_name || "";
-
-        // Update the pin with real data
-        setClickData({ lat, lng, name: placeName, address });
-      } catch (error) {
-        console.error("Geocoding error:", error);
-        setClickData({ lat, lng, name: "", address: "Nie udało się pobrać adresu." });
-      } finally {
-        setIsLoading(false);
-      }
+      clearPressTimer();
+      pressTimer.current = setTimeout(() => {
+        pressTimer.current = null;
+        dropPinAt(lat, lng);
+      }, LONG_PRESS_MS);
     },
+    mouseup: clearPressTimer,
+    // Cancel if the press turns into a pan/drag instead of a hold.
+    dragstart: clearPressTimer,
   });
+
+  // Clear any pending long-press timer on unmount.
+  useEffect(() => clearPressTimer, []);
 
   // Automatically open the popup when the pin is placed or updated
   useEffect(() => {

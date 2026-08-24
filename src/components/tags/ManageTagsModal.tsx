@@ -1,10 +1,12 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { getContrastColor, effectiveTagColor } from "@/lib/color";
-import { fetchCategories as loadCategories, updateCategory, deleteCategory } from "@/lib/api/categories";
+import { getContrastColor, effectiveTagColor, autoColorForEmoji, DEFAULT_MARKER_EMOJI } from "@/lib/color";
+import { fetchCategories as loadCategories, createCategory, updateCategory, deleteCategory, sortCategories } from "@/lib/api/categories";
 import { isOffline, PENDING_SYNC_MESSAGE } from "@/lib/offline/network";
 import { notifyPendingSync } from "@/lib/toast";
+import { AppEvent, emit } from "@/lib/events";
+import IconPicker from "./IconPicker";
 import toast from "react-hot-toast";
 import type { Category } from "@/lib/types";
 
@@ -17,13 +19,19 @@ export default function ManageTagsModal() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editIcon, setEditIcon] = useState("");
-  const [editColor, setEditColor] = useState("");
+  const [editIsMain, setEditIsMain] = useState(false);
   // State for tracking which tag is pending deletion
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  // States for the new-tag form
+  const [showNewForm, setShowNewForm] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newIcon, setNewIcon] = useState(DEFAULT_MARKER_EMOJI);
+  const [newIsMain, setNewIsMain] = useState(false);
+
   const fetchCategories = async () => {
     setIsLoading(true);
-    setCategories(await loadCategories());
+    setCategories(sortCategories(await loadCategories()));
     setIsLoading(false);
   };
 
@@ -45,29 +53,43 @@ export default function ManageTagsModal() {
     }
     setCategories(prev => prev.filter(cat => cat.id !== id));
     if (isOffline()) notifyPendingSync(PENDING_SYNC_MESSAGE);
+    emit(AppEvent.categoriesUpdated);
   };
 
   const startEdit = (cat: Category) => {
     setEditingId(cat.id);
     setEditName(cat.name);
-    setEditIcon(cat.icon || "");
-    
-    // Safely handle legacy color names for the color picker input
-    let safeColor = cat.color || "#3b82f6";
-    if (safeColor.trim().toLowerCase() === "white") safeColor = "#ffffff";
-    if (safeColor.trim().toLowerCase() === "black") safeColor = "#000000";
-    setEditColor(safeColor);
+    setEditIcon(cat.icon || DEFAULT_MARKER_EMOJI);
+    setEditIsMain(cat.is_main);
   };
 
   const handleUpdate = async (id: string) => {
     try {
-      const updated = await updateCategory(id, { name: editName.trim(), icon: editIcon, color: editColor });
-      setCategories(prev => prev.map(c => c.id === id ? updated : c));
+      const updated = await updateCategory(id, { name: editName.trim(), icon: editIcon, color: autoColorForEmoji(editIcon), is_main: editIsMain });
+      setCategories(prev => sortCategories(prev.map(c => c.id === id ? updated : c)));
       setEditingId(null);
       if (updated._pendingSync) notifyPendingSync(PENDING_SYNC_MESSAGE);
+      emit(AppEvent.categoriesUpdated);
     } catch (error) {
       console.error("Update category error:", error);
       toast.error("Nie udało się zaktualizować tagu.");
+    }
+  };
+
+  const handleCreate = async () => {
+    if (!newName.trim()) return;
+    try {
+      const category = await createCategory({ name: newName.trim(), icon: newIcon, color: autoColorForEmoji(newIcon), is_main: newIsMain });
+      setCategories(prev => sortCategories([...prev, category]));
+      setShowNewForm(false);
+      setNewName("");
+      setNewIcon(DEFAULT_MARKER_EMOJI);
+      setNewIsMain(false);
+      if (category._pendingSync) notifyPendingSync(PENDING_SYNC_MESSAGE);
+      emit(AppEvent.categoriesUpdated);
+    } catch (error) {
+      console.error("Create category error:", error);
+      toast.error("Nie udało się utworzyć tagu.");
     }
   };
 
@@ -85,10 +107,47 @@ export default function ManageTagsModal() {
           <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
             🏷️ Zarządzaj tagami
           </h2>
-          <button onClick={handleClose} className="p-2 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded-full transition-colors cursor-pointer">
-            ✕
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setShowNewForm(!showNewForm)}
+              className="px-3 py-1.5 rounded-full text-sm font-medium border border-dashed border-gray-400 text-gray-600 hover:bg-gray-50 transition-colors cursor-pointer"
+            >
+              {showNewForm ? "✕ Anuluj" : "+ Nowy tag"}
+            </button>
+            <button onClick={handleClose} className="p-2 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded-full transition-colors cursor-pointer">
+              ✕
+            </button>
+          </div>
         </div>
+
+        {/* New-tag form */}
+        {showNewForm && (
+          <div className="bg-gray-50 p-3 border-b flex flex-wrap gap-2 items-center animate-in fade-in slide-in-from-top-2">
+            <IconPicker value={newIcon} onChange={setNewIcon} />
+            <input
+              type="text"
+              placeholder="Nazwa tagu"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              className="flex-1 min-w-[120px] p-1.5 border border-gray-300 rounded-md text-sm outline-none"
+            />
+            <button
+              type="button"
+              onClick={() => setNewIsMain(!newIsMain)}
+              title="Główny tag — jego emoji pojawi się na markerze mapy"
+              className={`w-8 h-8 shrink-0 rounded-md border text-lg flex items-center justify-center cursor-pointer transition-colors ${newIsMain ? "bg-yellow-400 border-yellow-500" : "bg-white border-gray-300 grayscale opacity-50 hover:opacity-100"}`}
+            >
+              ⭐
+            </button>
+            <button
+              type="button"
+              onClick={handleCreate}
+              className="bg-gray-800 text-white px-3 py-1.5 rounded-md text-sm font-medium hover:bg-gray-900 cursor-pointer"
+            >
+              Zapisz
+            </button>
+          </div>
+        )}
 
         {/* Content */}
         <div className="p-4 overflow-y-auto flex-1">
@@ -109,25 +168,21 @@ export default function ManageTagsModal() {
                       <div className="flex flex-col gap-2">
                         {/* Inputs row */}
                         <div className="flex gap-2 items-center w-full">
-                          <input 
-                            type="text" 
-                            value={editIcon} 
-                            onChange={(e) => setEditIcon(e.target.value)} 
-                            className="w-12 p-1.5 text-center border rounded-md text-sm outline-none shrink-0" 
-                            placeholder="Ikona"
+                          <IconPicker value={editIcon} onChange={setEditIcon} />
+                          <input
+                            type="text"
+                            value={editName}
+                            onChange={(e) => setEditName(e.target.value)}
+                            className="flex-1 min-w-0 p-1.5 border rounded-md text-sm outline-none"
                           />
-                          <input 
-                            type="text" 
-                            value={editName} 
-                            onChange={(e) => setEditName(e.target.value)} 
-                            className="flex-1 min-w-0 p-1.5 border rounded-md text-sm outline-none" 
-                          />
-                          <input 
-                            type="color" 
-                            value={editColor} 
-                            onChange={(e) => setEditColor(e.target.value)} 
-                            className="w-8 h-8 p-0 border-0 rounded-md cursor-pointer shrink-0" 
-                          />
+                          <button
+                            type="button"
+                            onClick={() => setEditIsMain(!editIsMain)}
+                            title="Główny tag — jego emoji pojawi się na markerze mapy"
+                            className={`w-8 h-8 shrink-0 rounded-md border text-lg flex items-center justify-center cursor-pointer transition-colors ${editIsMain ? "bg-yellow-400 border-yellow-500" : "bg-white border-gray-300 grayscale opacity-50 hover:opacity-100"}`}
+                          >
+                            ⭐
+                          </button>
                         </div>
                         {/* Buttons row */}
                         <div className="flex gap-2 w-full mt-1">
@@ -150,6 +205,7 @@ export default function ManageTagsModal() {
                           }}
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border shadow-sm"
                         >
+                          {cat.is_main && <span title="Główny tag">⭐</span>}
                           <span>{cat.icon}</span>
                           <span className="truncate max-w-[150px]">{cat.name}</span>
                         </span>

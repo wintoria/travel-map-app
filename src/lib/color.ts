@@ -33,3 +33,63 @@ export function effectiveTagColor(rawColor: string | null | undefined): string {
   const isWhite = color.toLowerCase().includes("ffffff") || color.trim().toLowerCase() === "white";
   return isWhite ? "#e5e7eb" : color;
 }
+
+// Google-Maps-style category colors for map marker circles. Curated by emoji so a marker's color
+// always matches what the emoji represents (food = orange, nature = green, ...) without the user
+// having to pick one.
+const MARKER_PALETTE = {
+  red: "#EA4335",
+  orange: "#FA7B17",
+  amber: "#F9AB00",
+  green: "#34A853",
+  teal: "#12B5CB",
+  blue: "#4285F4",
+  indigo: "#7B61FF",
+  purple: "#A142F4",
+  pink: "#F439A0",
+  brown: "#8D6E63",
+} as const;
+
+export interface IconGroup {
+  label: string;
+  color: string;
+  emojis: string[];
+}
+
+// Curated icon choices for the tag icon picker, grouped for browsability. Each group's color is
+// what autoColorForEmoji() returns for its emoji — the picker preview and the map marker always match.
+export const ICON_GROUPS: IconGroup[] = [
+  { label: "Ogólne", color: MARKER_PALETTE.red, emojis: ["📍", "⭐", "🚩", "🎯", "🧭", "🏷️"] },
+  { label: "Jedzenie i picie", color: MARKER_PALETTE.orange, emojis: ["🍔", "🍕", "🍜", "🍣", "🍱", "🍝", "🍛", "🍤", "🥘", "🍲", "🥗", "🍰", "🧁", "🍩", "🍪", "☕", "🍵", "🍷", "🍸", "🍺", "🍻", "🥂", "🍽️", "🍴", "🥐", "🌮", "🌯", "🥙", "🍦", "🍨", "🥖", "🍞", "🧋", "🍹"] },
+  { label: "Natura", color: MARKER_PALETTE.green, emojis: ["🌳", "🌲", "🌴", "🏞️", "🌄", "🌅", "⛰️", "🏔️", "🌵", "🌻", "🌼", "🍃", "🦋", "🐦", "🏕️", "🌱", "🌾"] },
+  { label: "Plaża i woda", color: MARKER_PALETTE.teal, emojis: ["🏖️", "🏝️", "🌊", "⛱️", "🐚", "🚤", "🛥️", "🏄", "🤿", "⛵"] },
+  { label: "Kultura i historia", color: MARKER_PALETTE.brown, emojis: ["🏛️", "🎭", "🖼️", "📚", "🗿", "⛩️", "🕌", "🕍", "⛪", "🏯", "🏰", "🗼"] },
+  { label: "Zakupy", color: MARKER_PALETTE.pink, emojis: ["🛍️", "🛒", "🏬", "👗", "👠", "💄", "🎁", "💍"] },
+  { label: "Nocleg", color: MARKER_PALETTE.purple, emojis: ["🏨", "🏩", "🛏️", "🏠", "🏡", "🏚️", "🔑"] },
+  { label: "Transport", color: MARKER_PALETTE.blue, emojis: ["✈️", "🚆", "🚄", "🚌", "🚗", "🚕", "🚢", "⛴️", "🚀", "🚁", "⛽", "🚏", "🚉", "🛳️", "🚦", "🚲", "🛴"] },
+  { label: "Rozrywka", color: MARKER_PALETTE.indigo, emojis: ["🎡", "🎢", "🎪", "🎬", "🎮", "🎉", "🎊", "🎳", "🎤", "🎧", "🕹️", "🎨", "🎵", "🎶"] },
+  { label: "Sport", color: MARKER_PALETTE.amber, emojis: ["⚽", "🏀", "🎾", "🏈", "⚾", "🏐", "🏓", "🏸", "🥊", "🏊", "🚴", "⛷️", "🏂", "🧗", "🏋️"] },
+  { label: "Zdrowie", color: MARKER_PALETTE.red, emojis: ["🏥", "💊", "🚑", "➕", "❤️"] },
+];
+
+const EMOJI_COLOR_MAP: Record<string, string> = Object.fromEntries(
+  ICON_GROUPS.flatMap((group) => group.emojis.map((e) => [e, group.color]))
+);
+
+const PALETTE_VALUES = Object.values(MARKER_PALETTE);
+
+// Deterministic fallback for emoji outside the curated list, so uncurated icons still get a
+// consistent, non-gray color instead of all looking the same.
+function hashColor(str: string): string {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) hash = (hash * 31 + str.charCodeAt(i)) | 0;
+  return PALETTE_VALUES[Math.abs(hash) % PALETTE_VALUES.length];
+}
+
+export function autoColorForEmoji(emoji: string | null | undefined): string {
+  if (!emoji) return MARKER_PALETTE.red;
+  return EMOJI_COLOR_MAP[emoji] ?? hashColor(emoji);
+}
+
+// Landmark glyph used for map markers that have no main tag and no trip icon — classic Google-pin red.
+export const DEFAULT_MARKER_EMOJI = "📍";

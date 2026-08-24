@@ -3,6 +3,7 @@
 export const AppEvent = {
   placesUpdated: "places-updated",
   tripsUpdated: "trips-updated",
+  categoriesUpdated: "categories-updated",
   filtersChanged: "filters-changed",
   searchChanged: "search-changed",
   syncQueueChanged: "sync-queue-changed",

@@ -4,7 +4,7 @@ import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import { OpenStreetMapProvider } from "leaflet-geosearch"
 import { fetchTrips } from "@/lib/api/trips";
-import { fetchCategories } from "@/lib/api/categories";
+import { fetchCategories, sortCategories } from "@/lib/api/categories";
 import { fetchPendingPlaces as loadPendingPlaces, deletePlace, updatePlaceCoords } from "@/lib/api/places";
 import { getAllDescendants } from "@/lib/tree";
 import { AppEvent, emit } from "@/lib/events";
@@ -181,11 +181,12 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       }
 
       if (catData) {
-        setCategories(catData);
+        const sortedCats = sortCategories(catData);
+        setCategories(sortedCats);
         const urlTags = currentParams().get("tags");
         if (urlTags) {
           const urlNames = urlTags.split(",");
-          const matchedIds = catData.filter(c => urlNames.includes(c.name)).map(c => c.id);
+          const matchedIds = sortedCats.filter(c => urlNames.includes(c.name)).map(c => c.id);
           setSelectedTags(new Set(matchedIds));
         }
       }
@@ -200,6 +201,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
     // Listeners for data updates
     window.addEventListener(AppEvent.tripsUpdated, fetchFilters);
+    window.addEventListener(AppEvent.categoriesUpdated, fetchFilters);
 
     // Listen for place updates to refresh the pending list
     window.addEventListener(AppEvent.placesUpdated, fetchPendingPlaces);
@@ -214,6 +216,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
     return () => {
       window.removeEventListener(AppEvent.tripsUpdated, fetchFilters);
+      window.removeEventListener(AppEvent.categoriesUpdated, fetchFilters);
       window.removeEventListener(AppEvent.placesUpdated, fetchPendingPlaces);
       authListener.subscription.unsubscribe();
     };

@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import type { Place, Category } from "@/lib/types";
+import type { Place, Category, PlaceCategory } from "@/lib/types";
 import { uploadAttachment } from "@/lib/api/storage";
 import { isNetworkError, isOffline } from "@/lib/offline/network";
 import {
@@ -10,6 +10,7 @@ import {
   getCachedTrips,
   getCachedCategories,
   getCachedPlaceCategories,
+  cachePlaceCategories,
   setCachedPlaceCategoriesForPlace,
   removeCachedPlaceCategoriesForPlace,
 } from "@/lib/offline/cache";
@@ -134,6 +135,20 @@ export async function fetchAllPlaces(): Promise<Place[]> {
   const places = (data as Place[]) || [];
   void cachePlaces(places);
   return places;
+}
+
+// Full place_categories relation table — used to resolve each place's main-tag marker icon (see
+// PlacesMarkers). Kept alongside the fire-and-forget fetchAllPlaces() call on mount.
+export async function fetchAllPlaceCategories(): Promise<PlaceCategory[]> {
+  if (isOffline()) return getCachedPlaceCategories();
+  const { data, error } = await supabase.from("place_categories").select("*");
+  if (error) {
+    console.error("Fetch place_categories error:", error);
+    return getCachedPlaceCategories();
+  }
+  const relations = (data as PlaceCategory[]) || [];
+  void cachePlaceCategories(relations);
+  return relations;
 }
 
 // A single canonical row straight from the server — used to reconcile the local cache after a

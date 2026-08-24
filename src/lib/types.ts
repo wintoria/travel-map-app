@@ -36,6 +36,8 @@ export interface Category {
   name: string;
   icon: string | null;
   color: string | null;
+  // Main tags win marker-icon priority on the map (see PlacesMarkers).
+  is_main: boolean;
   updated_at: string;
   _pendingSync?: boolean;
 }
