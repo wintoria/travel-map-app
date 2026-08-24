@@ -5,6 +5,7 @@ export const AppEvent = {
   tripsUpdated: "trips-updated",
   filtersChanged: "filters-changed",
   searchChanged: "search-changed",
+  syncQueueChanged: "sync-queue-changed",
 } as const;
 
 export type AppEventName = (typeof AppEvent)[keyof typeof AppEvent];

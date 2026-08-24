@@ -1,4 +1,5 @@
 import GlobalSearch from "@/components/search/GlobalSearch";
+import SyncStatusIndicator from "./SyncStatusIndicator";
 import UserMenu from "./UserMenu";
 
 export default function Topbar() {
@@ -8,9 +9,10 @@ export default function Topbar() {
       <div className="absolute left-1/2 -translate-x-1/2 font-bold text-xl text-green-600 hidden sm:block">
         TravelMap
       </div>
-      
+
       {/* Search bar pushed to the right */}
-      <div className="w-full max-w-xs sm:max-w-sm flex justify-end">
+      <div className="w-full max-w-xs sm:max-w-sm flex items-center justify-end">
+        <SyncStatusIndicator />
         <GlobalSearch />
         <UserMenu />
       </div>

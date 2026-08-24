@@ -1,8 +1,8 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
-import { fetchFilteredPlaces, resolvePlaceFilters } from "@/lib/api/places";
+import { fetchFilteredPlaces, fetchAllPlaces, resolvePlaceFilters } from "@/lib/api/places";
+import { fetchTripsBasic } from "@/lib/api/trips";
 import { AppEvent } from "@/lib/events";
 import { openModal } from "@/lib/url";
 import type { Place, Trip } from "@/lib/types";
@@ -10,16 +10,14 @@ import type { Place, Trip } from "@/lib/types";
 export default function PlaceList() {
   const router = useRouter();
   const [places, setPlaces] = useState<Place[]>([]);
-  const [trips, setTrips] = useState<Record<string, Trip>>({});
+  const [trips, setTrips] = useState<Record<string, Pick<Trip, "id" | "name" | "icon" | "parent_id">>>({});
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
 
   // Fetch trips to get their names and icons for grouping headers
   const fetchTripsInfo = async () => {
-    const { data } = await supabase.from("trips").select("id, name, icon");
-    if (data) {
-      const tripsMap = data.reduce((acc, trip) => ({ ...acc, [trip.id]: trip }), {} as Record<string, Trip>);
-      setTrips(tripsMap);
-    }
+    const data = await fetchTripsBasic();
+    const tripsMap = data.reduce((acc, trip) => ({ ...acc, [trip.id]: trip }), {} as Record<string, typeof data[number]>);
+    setTrips(tripsMap);
   };
 
   // Fetch places and apply Sidebar filters (trips, search, and tags)
@@ -32,6 +30,8 @@ export default function PlaceList() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchTripsInfo();
     fetchPlaces();
+    // Fire-and-forget: keeps the full offline IndexedDB mirror warm regardless of the active filter.
+    void fetchAllPlaces();
 
     // Listen to changes from Sidebar and Modals
     window.addEventListener(AppEvent.placesUpdated, fetchPlaces);

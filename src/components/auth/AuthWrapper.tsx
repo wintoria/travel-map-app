@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
+import { initSyncListener } from "@/lib/offline/sync";
 import LoginScreen from "./LoginScreen";
 
 export default function AuthWrapper({ children }: { children: React.ReactNode }) {
@@ -22,6 +23,12 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // Register the offline mutation-queue sync listener only once a session is confirmed — the same
+  // point the rest of the app is known-safe to make authenticated Supabase calls.
+  useEffect(() => {
+    if (session) initSyncListener();
+  }, [session]);
 
   // Show a simple loading state while checking credentials
   if (loading) {

@@ -1,8 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
 import { getBrightness, effectiveTagColor } from "@/lib/color";
-import { fetchCategories } from "@/lib/api/categories";
+import { fetchCategories, createCategory } from "@/lib/api/categories";
 import type { Category } from "@/lib/types";
 
 export default function TagSelector({ initialSelected = [] }: { initialSelected?: string[] }) {
@@ -26,18 +25,15 @@ export default function TagSelector({ initialSelected = [] }: { initialSelected?
 
   const handleCreateCategory = async () => {
     if (!newName.trim()) return;
-    
-    const { data, error } = await supabase
-      .from("categories")
-      .insert([{ name: newName.trim(), icon: newIcon, color: newColor }])
-      .select()
-      .single();
 
-    if (data && !error) {
-      setCategories(prev => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
-      setSelectedIds(prev => [...prev, data.id]);
+    try {
+      const category = await createCategory({ name: newName.trim(), icon: newIcon, color: newColor });
+      setCategories(prev => [...prev, category].sort((a, b) => a.name.localeCompare(b.name)));
+      setSelectedIds(prev => [...prev, category.id]);
       setShowNewForm(false);
       setNewName("");
+    } catch (error) {
+      console.error("Create category error:", error);
     }
   };
 

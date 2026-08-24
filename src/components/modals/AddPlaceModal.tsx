@@ -2,25 +2,26 @@
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { supabase } from "@/lib/supabase";
 import React from "react";
 import TagSelector from "@/components/tags/TagSelector";
 import { childrenOf } from "@/lib/tree";
 import { AppEvent, emit } from "@/lib/events";
+import { fetchTripsBasic } from "@/lib/api/trips";
+import { createPlace } from "@/lib/api/places";
 import type { Trip } from "@/lib/types";
+
+type TripOption = Pick<Trip, "id" | "name" | "icon" | "parent_id">;
 
 export default function AddPlaceModal({ currentView }: { currentView: string }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [trips, setTrips] = useState<Trip[]>([]);
+  const [trips, setTrips] = useState<TripOption[]>([]);
 
   // Fetch available trips for the dropdown
   useEffect(() => {
-    supabase.from("trips").select("id, name, icon, parent_id").then(({ data }) => {
-      if (data) setTrips(data as Trip[]);
-    });
+    fetchTripsBasic().then(setTrips);
   }, []);
 
   // Recursive function to build infinite dropdown nesting
@@ -71,79 +72,34 @@ export default function AddPlaceModal({ currentView }: { currentView: string }) 
 
       // Get the additional custom link
       const additionalInfo = formData.get("additionalInfoUrl") as string;
-      
-      // 2. Handle file upload (if a file was selected)
+
+      // File input (empty selection still yields a zero-size File, handled by createPlace)
       const file = formData.get("additionalInfoFile") as File;
-      let attachedFileUrl = null;
-
-      if (file && file.size > 0) {
-        const originalName = file.name;
-        const lastDotIndex = originalName.lastIndexOf('.');
-        
-        let baseName = originalName;
-        let fileExt = '';
-        
-        // Extract base name and extension
-        if (lastDotIndex !== -1) {
-          baseName = originalName.substring(0, lastDotIndex);
-          fileExt = '.' + originalName.substring(lastDotIndex + 1);
-        }
-        
-        // Clean the file name from special characters and spaces
-        const safeBaseName = baseName.replace(/[^a-zA-Z0-9]/g, '_');
-        
-        // Generate a 5-character random string to prevent overwriting
-        const randomStr = Math.random().toString(36).substring(2, 7);
-        
-        // Construct the final unique file name
-        const fileName = `${safeBaseName}-${randomStr}${fileExt}`;
-        
-        // Upload the file to Supabase storage
-        const { error: uploadError } = await supabase.storage
-          .from("attachments")
-          .upload(fileName, file);
-
-        if (uploadError) throw uploadError;
-
-        // Retrieve the public URL for the uploaded file
-        const { data: { publicUrl } } = supabase.storage
-          .from("attachments")
-          .getPublicUrl(fileName);
-        
-        attachedFileUrl = publicUrl;
-      }
 
       // Read trip_id from the new dropdown
       const trip_id = formData.get("trip_id") as string;
 
       // Read selected category IDs from the hidden input
-      const categoryIds = JSON.parse((formData.get("category_ids") as string) || "[]");
+      const categoryIds: string[] = JSON.parse((formData.get("category_ids") as string) || "[]");
 
-      // 3. Insert the new place into the database
-      const { data: newPlace, error: dbError } = await supabase.from("places").insert({
-        trip_id, // Uses dynamic user selection
-        name,
-        lat,
-        lng,
-        address,
-        duration,
-        note,
-        google_maps_url: googleMapsUrl,
-        visited,
-        additional_link: additionalInfo, 
-        attached_file: attachedFileUrl
-      }).select().single();
-
-      if (dbError) throw dbError;
-
-      // 4. Insert category relations if any tags were selected
-      if (categoryIds.length > 0 && newPlace) {
-        const relations = categoryIds.map((categoryId: string) => ({
-          place_id: newPlace.id,
-          category_id: categoryId
-        }));
-        await supabase.from("place_categories").insert(relations);
-      }
+      // Create the place (handles the attachment upload, DB insert and category relations,
+      // and transparently queues everything for later sync if we're offline)
+      await createPlace(
+        {
+          trip_id,
+          name,
+          lat,
+          lng,
+          address,
+          duration,
+          note,
+          google_maps_url: googleMapsUrl,
+          visited,
+          additional_link: additionalInfo,
+        },
+        file && file.size > 0 ? file : null,
+        categoryIds
+      );
 
       // Close the modal immediately so it feels fast
       router.push(`?view=${currentView}`, { scroll: false });

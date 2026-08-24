@@ -1,11 +1,13 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { supabase } from "@/lib/supabase";
 import { childrenOf } from "@/lib/tree";
 import { AppEvent, emit } from "@/lib/events";
 import { closeModal } from "@/lib/url";
+import { fetchTripsBasic, createTrip } from "@/lib/api/trips";
 import type { Trip } from "@/lib/types";
+
+type TripOption = Pick<Trip, "id" | "name" | "icon" | "parent_id">;
 
 export default function AddTripModal() {
   const router = useRouter();
@@ -14,24 +16,12 @@ export default function AddTripModal() {
   const modalType = searchParams.get("modal");
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [trips, setTrips] = useState<Trip[]>([]);
+  const [trips, setTrips] = useState<TripOption[]>([]);
 
   // Fetch all folders to build hierarchy in the dropdown
   useEffect(() => {
     if (modalType !== "add-trip") return;
-
-    const fetchAllTrips = async () => {
-      const { data, error } = await supabase
-        .from("trips")
-        .select("id, name, parent_id")
-        .order("created_at", { ascending: true });
-        
-      if (!error && data) {
-        setTrips(data as Trip[]);
-      }
-    };
-
-    fetchAllTrips();
+    fetchTripsBasic().then(setTrips);
   }, [modalType]);
 
   const handleClose = () => closeModal(router);
@@ -46,13 +36,11 @@ export default function AddTripModal() {
       const icon = formData.get("icon") as string;
       const parentId = formData.get("parentId") as string;
 
-      const { error } = await supabase.from("trips").insert({
+      await createTrip({
         name,
         icon: icon || null,
         parent_id: parentId || null,
       });
-
-      if (error) throw error;
 
       // Close modal and dispatch event to refresh the Sidebar
       emit(AppEvent.tripsUpdated);

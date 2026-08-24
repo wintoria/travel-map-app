@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { Marker, Popup } from "react-leaflet";
 import { useRouter } from "next/navigation";
-import { fetchFilteredPlaces, resolvePlaceFilters } from "@/lib/api/places";
+import { fetchFilteredPlaces, fetchAllPlaces, resolvePlaceFilters } from "@/lib/api/places";
 import { AppEvent } from "@/lib/events";
 import { openModal } from "@/lib/url";
 import type { Place } from "@/lib/types";
@@ -36,6 +36,8 @@ export default function PlacesMarkers() {
 
     // Initial fetch on mount
     fetchPlaces();
+    // Fire-and-forget: keeps the full offline IndexedDB mirror warm regardless of the active filter.
+    void fetchAllPlaces();
 
     // Wrapper functions to ensure correct signature for addEventListener
     const handleFiltersChanged = (e: Event) => fetchPlaces(e);

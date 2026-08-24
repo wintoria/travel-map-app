@@ -1,18 +1,18 @@
 "use client";
 import React, { useEffect, useState, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { supabase } from "@/lib/supabase";
 import TagSelector from "@/components/tags/TagSelector";
 import { OpenStreetMapProvider } from "leaflet-geosearch";
 import { childrenOf } from "@/lib/tree";
 import { AppEvent, emit } from "@/lib/events";
 import { closeModal, openModal } from "@/lib/url";
-import type { Place, Trip } from "@/lib/types";
+import { fetchTripsBasic } from "@/lib/api/trips";
+import { fetchPlaceWithCategories, updatePlace, type EditPlace } from "@/lib/api/places";
+import type { Trip } from "@/lib/types";
 
 // A geocoding result from leaflet-geosearch (coordinates in y/x).
 type GeoResult = { x: number; y: number; label: string };
-// Place row plus its category relations, as fetched for editing.
-type EditPlace = Place & { place_categories?: { category_id: string }[] };
+type TripOption = Pick<Trip, "id" | "name" | "icon" | "parent_id">;
 
 export default function EditPlaceModal() {
   const router = useRouter();
@@ -36,7 +36,7 @@ export default function EditPlaceModal() {
   const lngRef = useRef<HTMLInputElement>(null);
 
   // Store all available trips for the dropdown hierarchy
-  const [trips, setTrips] = useState<Trip[]>([]);
+  const [trips, setTrips] = useState<TripOption[]>([]);
 
   // Fetch existing data to populate the form
   useEffect(() => {
@@ -44,31 +44,18 @@ export default function EditPlaceModal() {
 
     const fetchData = async () => {
       // Force the loading screen to show every time the modal opens
-      setIsLoading(true); 
+      setIsLoading(true);
 
-      // Fetch place and its category relations in a single, optimized query
-      const { data: placeData, error: placeError } = await supabase
-        .from("places")
-        .select(`
-          *,
-          place_categories ( category_id )
-        `)
-        .eq("id", placeId)
-        .single();
-
-      if (!placeError && placeData) {
-        setPlace(placeData as EditPlace);
+      const placeData = await fetchPlaceWithCategories(placeId);
+      if (placeData) {
+        setPlace(placeData);
         if (placeData.place_categories) {
-          setInitialCategories(placeData.place_categories.map((pc: { category_id: string }) => pc.category_id));
+          setInitialCategories(placeData.place_categories.map((pc) => pc.category_id));
         }
       }
 
-      const { data: tripsData } = await supabase
-        .from("trips")
-        .select("id, name, parent_id, icon")
-        .order("created_at", { ascending: true });
-        
-      if (tripsData) setTrips(tripsData as Trip[]);
+      const tripsData = await fetchTripsBasic();
+      setTrips(tripsData);
 
       // Hide loading screen only after new data is ready
       setIsLoading(false);
@@ -106,42 +93,18 @@ export default function EditPlaceModal() {
         googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
       }
 
-      // Handle file upload if a new file is provided
+      // File input (empty selection still yields a zero-size File, handled by updatePlace)
       const file = formData.get("additionalInfoFile") as File;
-      let attachedFileUrl = place?.attached_file ?? null; // Keep old file by default
 
-      if (file && file.size > 0) {
-        const fileExt = file.name.substring(file.name.lastIndexOf('.'));
-        const safeBaseName = file.name.substring(0, file.name.lastIndexOf('.')).replace(/[^a-zA-Z0-9]/g, '_');
-        const fileName = `${safeBaseName}-${Math.random().toString(36).substring(2, 7)}${fileExt}`;
-        
-        const { error: uploadError } = await supabase.storage.from("attachments").upload(fileName, file);
-        if (uploadError) throw uploadError;
-
-        const { data: { publicUrl } } = supabase.storage.from("attachments").getPublicUrl(fileName);
-        attachedFileUrl = publicUrl;
-      }
-
-      // Update the DB record for the place
-      const { error: dbError } = await supabase.from("places").update({
-        name, trip_id, lat, lng, address, duration, note,
-        google_maps_url: googleMapsUrl,
-        additional_link: additionalInfo, 
-        attached_file: attachedFileUrl
-      }).eq("id", placeId);
-
-      if (dbError) throw dbError;
-
-      // Update category relationships (clear old, insert new)
-      await supabase.from("place_categories").delete().eq("place_id", placeId);
-      
-      if (categoryIds.length > 0) {
-        const relations = categoryIds.map((categoryId: string) => ({
-          place_id: placeId,
-          category_id: categoryId
-        }));
-        await supabase.from("place_categories").insert(relations);
-      }
+      // Update the place (handles a new attachment upload, DB update and category relations,
+      // and transparently queues everything for later sync if we're offline)
+      await updatePlace(
+        placeId as string,
+        { name, trip_id, lat, lng, address, duration, note, google_maps_url: googleMapsUrl, additional_link: additionalInfo },
+        file && file.size > 0 ? file : null,
+        categoryIds,
+        place?.attached_file ?? null
+      );
 
       // Force Next.js to purge client cache before navigating back
       router.refresh();

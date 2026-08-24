@@ -1,9 +1,8 @@
 "use client";
 import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import { getContrastColor, effectiveTagColor } from "@/lib/color";
-import { fetchCategories as loadCategories } from "@/lib/api/categories";
+import { fetchCategories as loadCategories, updateCategory, deleteCategory } from "@/lib/api/categories";
 import type { Category } from "@/lib/types";
 
 export default function ManageTagsModal() {
@@ -33,7 +32,7 @@ export default function ManageTagsModal() {
 
   const confirmDelete = async (id: string) => {
     // Perform the actual deletion after confirmation
-    await supabase.from("categories").delete().eq("id", id);
+    await deleteCategory(id);
     setCategories(prev => prev.filter(cat => cat.id !== id));
     setDeletingId(null);
     router.refresh();
@@ -52,17 +51,13 @@ export default function ManageTagsModal() {
   };
 
   const handleUpdate = async (id: string) => {
-    const { data, error } = await supabase
-      .from("categories")
-      .update({ name: editName.trim(), icon: editIcon, color: editColor })
-      .eq("id", id)
-      .select()
-      .single();
-
-    if (data && !error) {
-      setCategories(prev => prev.map(c => c.id === id ? data : c));
+    try {
+      const updated = await updateCategory(id, { name: editName.trim(), icon: editIcon, color: editColor });
+      setCategories(prev => prev.map(c => c.id === id ? updated : c));
       setEditingId(null);
       router.refresh();
+    } catch (error) {
+      console.error("Update category error:", error);
     }
   };
 

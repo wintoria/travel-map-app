@@ -1,11 +1,13 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { supabase } from "@/lib/supabase";
 import { childrenOf } from "@/lib/tree";
 import { AppEvent, emit } from "@/lib/events";
 import { closeModal } from "@/lib/url";
+import { fetchTrips, fetchTripsBasic, updateTrip, deleteTrip } from "@/lib/api/trips";
 import type { Trip } from "@/lib/types";
+
+type TripOption = Pick<Trip, "id" | "name" | "icon" | "parent_id">;
 
 export default function EditTripModal() {
   const router = useRouter();
@@ -17,7 +19,7 @@ export default function EditTripModal() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [trip, setTrip] = useState<Trip | null>(null);
-  const [allTrips, setAllTrips] = useState<Trip[]>([]);
+  const [allTrips, setAllTrips] = useState<TripOption[]>([]);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // Fetch current trip and all trips for the hierarchy dropdown
@@ -28,11 +30,12 @@ export default function EditTripModal() {
       setIsLoading(true);
       setShowDeleteConfirm(false);
 
-      const { data: currentTrip } = await supabase.from("trips").select("*").eq("id", tripId).single();
-      if (currentTrip) setTrip(currentTrip as Trip);
+      const trips = await fetchTrips();
+      const currentTrip = trips.find((t) => t.id === tripId) ?? null;
+      if (currentTrip) setTrip(currentTrip);
 
-      const { data: tripsData } = await supabase.from("trips").select("id, name, parent_id, icon").order("created_at", { ascending: true });
-      if (tripsData) setAllTrips(tripsData as Trip[]);
+      const tripsData = await fetchTripsBasic();
+      setAllTrips(tripsData);
 
       setIsLoading(false);
     };
@@ -52,13 +55,11 @@ export default function EditTripModal() {
       const icon = formData.get("icon") as string;
       const parentId = formData.get("parentId") as string;
 
-      const { error } = await supabase.from("trips").update({
+      await updateTrip(tripId as string, {
         name,
         icon: icon || null,
         parent_id: parentId || null,
-      }).eq("id", tripId);
-
-      if (error) throw error;
+      });
 
       // Refresh Sidebar and map, then close
       emit(AppEvent.tripsUpdated);
@@ -74,11 +75,11 @@ export default function EditTripModal() {
 
   const handleDelete = async () => {
     setIsSubmitting(true);
-    
+
     // Note: If this folder has children, Supabase must have CASCADE DELETE enabled,
     // otherwise this might throw a foreign key error.
-    const { error } = await supabase.from("trips").delete().eq("id", tripId);
-    
+    const { error } = await deleteTrip(tripId as string);
+
     if (error) {
       console.error("Delete error:", error);
       alert("Nie można usunąć zakładki. Upewnij się, że nie zawiera innych podzakładek.");

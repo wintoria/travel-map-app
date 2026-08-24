@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Jesteś offline — TravelMap</title>
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      padding: 1.5rem;
+      text-align: center;
+      background: #f9fafb;
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+    .icon { font-size: 3rem; }
+    h1 { margin: 0; font-size: 1.25rem; font-weight: 700; color: #1f2937; }
+    p { margin: 0; max-width: 22rem; font-size: 0.875rem; color: #6b7280; }
+    button {
+      margin-top: 0.5rem;
+      background: #2563eb;
+      color: #fff;
+      font-weight: 700;
+      border: none;
+      padding: 0.65rem 1.5rem;
+      border-radius: 0.5rem;
+      font-size: 0.9rem;
+      cursor: pointer;
+    }
+    button:hover { background: #1d4ed8; }
+  </style>
+</head>
+<body>
+  <!--
+    Static HTML on purpose, outside the Next.js app router: this is the service worker's
+    navigation fallback (see fallbacks.entries in src/app/sw.ts) for the rare case nothing else
+    is cached yet. @serwist/next's build step precaches everything under public/ automatically,
+    which an app-router page's server-rendered document does not get (verified: it only ends up
+    in the precache manifest as its JS chunk, not its HTML). The real offline experience — browsing
+    previously loaded places/trips/tags — happens on the normal "/" route via the IndexedDB-backed
+    fallbacks in lib/api/*, not here.
+  -->
+  <div class="icon">📡</div>
+  <h1>Jesteś offline</h1>
+  <p>
+    Nie można połączyć się z internetem. Jeśli aplikacja była wcześniej otwarta online, wróć do
+    niej — zapisane miejsca i zakładki powinny być dostępne.
+  </p>
+  <button onclick="location.reload()">Spróbuj ponownie</button>
+</body>
+</html>

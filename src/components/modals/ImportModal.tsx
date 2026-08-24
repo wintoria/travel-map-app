@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { AppEvent, emit } from "@/lib/events";
+import { bulkUpsertPlaces } from "@/lib/api/places";
 
 // Shape of a Google Takeout GeoJSON feature (only the fields we read).
 interface ImportProps {
@@ -63,7 +64,11 @@ export default function ImportModal() {
       setMessage({ text: "Wybierz plik i folder docelowy.", type: "error" });
       return;
     }
-    
+    if (!navigator.onLine) {
+      setMessage({ text: "Import wymaga połączenia z internetem.", type: "error" });
+      return;
+    }
+
     setLoading(true);
     setMessage({ text: "", type: "" });
 
@@ -102,7 +107,7 @@ export default function ImportModal() {
           }).filter(place => place.lat && place.lng); // Ensure coordinates exist
 
           // Perform UPSERT to database
-          const { error } = await supabase.from("places").upsert(placesToInsert, { onConflict: "trip_id, google_maps_url", ignoreDuplicates: false });
+          const { error } = await bulkUpsertPlaces(placesToInsert, "trip_id, google_maps_url");
           if (error) throw error;
           
           setMessage({ text: `Sukces! Zapisano ${placesToInsert.length} miejsc (JSON).`, type: "success" });
@@ -182,7 +187,7 @@ export default function ImportModal() {
           }
 
           // Perform UPSERT to database
-          const { error } = await supabase.from("places").upsert(placesToInsert, { onConflict: "trip_id, google_maps_url", ignoreDuplicates: false });
+          const { error } = await bulkUpsertPlaces(placesToInsert, "trip_id, google_maps_url");
           if (error) throw error;
           
           // Calculate how many places are missing coordinates for the success message

@@ -1,19 +1,11 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { supabase } from "@/lib/supabase";
 import { getContrastColor, effectiveTagColor } from "@/lib/color";
-import { deletePlace } from "@/lib/api/places";
+import { deletePlace, fetchPlaceDetails, updatePlaceVisited, type PlaceDetails } from "@/lib/api/places";
 import { AppEvent, emit } from "@/lib/events";
 import { closeModal, openModal } from "@/lib/url";
-import type { Category, Place } from "@/lib/types";
-
-// Place row enriched with its trip and flattened tag list for display.
-type PlaceDetails = Place & {
-  trip?: { name: string; icon: string | null } | null;
-  tags?: Category[];
-  place_categories?: { categories: Category | null }[];
-};
+import type { Category } from "@/lib/types";
 
 export default function ViewPlaceModal() {
   const router = useRouter();
@@ -31,49 +23,14 @@ export default function ViewPlaceModal() {
     // Only fetch if this specific modal is active
     if (modalType !== "view-place" || !placeId) return;
 
-    const fetchPlaceDetails = async () => {
+    const loadPlaceDetails = async () => {
       setIsLoading(true);
-      
-      // Fetch single place data from Supabase
-      const { data, error } = await supabase
-        .from("places")
-        .select(`
-          *,
-          place_categories (
-            categories (*)
-          )
-        `)
-        .eq("id", placeId)
-        .single();
-
-      if (!error && data) {
-        // Fetch trip (bookmark) info if place belongs to one
-        if (data.trip_id) {
-          const { data: tripData } = await supabase
-            .from("trips")
-            .select("name, icon")
-            .eq("id", data.trip_id)
-            .single();
-          data.trip = tripData;
-        }
-        
-        // Flatten categories array for easy rendering
-        if (data.place_categories) {
-          data.tags = data.place_categories
-            .map((pc: { categories: Category | null }) => pc.categories)
-            .filter(Boolean)
-            .sort((a: Category, b: Category) => a.name.localeCompare(b.name));
-        }
-
-        setPlace(data as PlaceDetails);
-      } else {
-        console.error("Error fetching place details:", error);
-      }
-      
+      const details = await fetchPlaceDetails(placeId);
+      setPlace(details);
       setIsLoading(false);
     };
 
-    fetchPlaceDetails();
+    loadPlaceDetails();
   }, [modalType, placeId]);
 
   // Close modal by clearing URL parameters
@@ -101,20 +58,15 @@ export default function ViewPlaceModal() {
   const handleToggleVisited = async () => {
     if (!place) return;
     const newStatus = !place.visited;
-    
+
     // Optimistic UI update (feels instant)
     setPlace({ ...place, visited: newStatus });
 
-    // Update in database
-    const { error } = await supabase
-      .from("places")
-      .update({ visited: newStatus })
-      .eq("id", place.id);
-
-    if (!error) {
+    try {
+      await updatePlaceVisited(place.id, newStatus);
       emit(AppEvent.placesUpdated);
-    } else {
-      // Revert if database fails
+    } catch (error) {
+      // Revert if the update fails (a non-network error — an offline write is queued, not rejected)
       setPlace({ ...place, visited: !newStatus });
       console.error("Failed to toggle visited status", error);
     }
