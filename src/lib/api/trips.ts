@@ -17,10 +17,10 @@ export async function fetchTrips(): Promise<Trip[]> {
   return trips;
 }
 
-// Lightweight id/name/icon rows for dropdowns and grouping headers.
-export async function fetchTripsBasic(): Promise<Pick<Trip, "id" | "name" | "icon" | "parent_id">[]> {
+// Lightweight id/name/icon/color rows for dropdowns and grouping headers.
+export async function fetchTripsBasic(): Promise<Pick<Trip, "id" | "name" | "icon" | "color" | "parent_id">[]> {
   if (isOffline()) return getCachedTrips();
-  const { data, error } = await supabase.from("trips").select("id, name, icon, parent_id");
+  const { data, error } = await supabase.from("trips").select("id, name, icon, color, parent_id");
   if (error) {
     if (!isNetworkError(error)) return [];
     return getCachedTrips();
@@ -47,6 +47,7 @@ async function reconcileSupersededTrip(id: string): Promise<void> {
 export interface TripInput {
   name: string;
   icon: string | null;
+  color: string | null;
   parent_id: string | null;
 }
 

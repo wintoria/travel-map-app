@@ -4,6 +4,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
 import IconPicker from "@/components/tags/IconPicker";
+import ColorPicker from "@/components/tags/ColorPicker";
+import { autoColorForEmoji } from "@/lib/color";
 import { childrenOf } from "@/lib/tree";
 import { AppEvent, emit } from "@/lib/events";
 import { closeModal } from "@/lib/url";
@@ -28,6 +30,7 @@ export default function EditTripModal() {
   const [allTrips, setAllTrips] = useState<TripOption[]>([]);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [icon, setIcon] = useState("");
+  const [color, setColor] = useState<string | null>(null);
 
   // Fetch current trip and all trips for the hierarchy dropdown
   useEffect(() => {
@@ -45,6 +48,7 @@ export default function EditTripModal() {
       setAllTrips(tripsData);
 
       setIcon(currentTrip?.icon ?? "");
+      setColor(currentTrip?.color ?? null);
       setIsLoading(false);
     };
 
@@ -61,11 +65,13 @@ export default function EditTripModal() {
       const formData = new FormData(e.currentTarget);
       const name = formData.get("name") as string;
       const icon = formData.get("icon") as string;
+      const color = formData.get("color") as string;
       const parentId = formData.get("parentId") as string;
 
       const trip = await updateTrip(tripId as string, {
         name,
         icon: icon || null,
+        color: color || autoColorForEmoji(icon),
         parent_id: parentId || null,
       });
 
@@ -140,7 +146,18 @@ export default function EditTripModal() {
             <div>
               <label className="block text-sm font-medium text-base-content/80 mb-1">Ikona</label>
               <input type="hidden" name="icon" value={icon} />
-              <IconPicker value={icon} onChange={setIcon} />
+              <input type="hidden" name="color" value={color ?? ""} />
+              <div className="flex items-start">
+                <IconPicker
+                  value={icon}
+                  color={color}
+                  onChange={(emoji) => {
+                    setIcon(emoji);
+                    setColor(null);
+                  }}
+                />
+                <ColorPicker color={color ?? autoColorForEmoji(icon)} onChange={setColor} />
+              </div>
             </div>
 
             <div>

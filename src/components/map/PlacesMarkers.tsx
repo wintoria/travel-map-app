@@ -6,17 +6,17 @@ import L from "leaflet";
 import { fetchFilteredPlaces, fetchAllPlaces, fetchAllPlaceCategories, resolvePlaceFilters } from "@/lib/api/places";
 import { fetchCategories } from "@/lib/api/categories";
 import { fetchTripsBasic } from "@/lib/api/trips";
-import { autoColorForEmoji, DEFAULT_MARKER_EMOJI } from "@/lib/color";
+import { autoColorForEmoji, mutedBg, DEFAULT_MARKER_EMOJI } from "@/lib/color";
 import { AppEvent } from "@/lib/events";
 import { openModal } from "@/lib/url";
 import type { Category, Place, PlaceCategory, Trip } from "@/lib/types";
 
 // Emoji-on-circle marker icon. Built via DOM APIs (not an HTML template string) so emoji/icon text
 // from user-editable category/trip data is always escaped, never interpreted as markup. Circle color
-// comes from autoColorForEmoji, which is always one of our own curated hex constants.
+// is either the main tag's custom saved color or, absent one, autoColorForEmoji's hash-derived default.
 function buildEmojiIcon(emoji: string, color: string): L.DivIcon {
   const wrapper = document.createElement("div");
-  wrapper.style.cssText = `width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;line-height:1;box-shadow:0 1px 4px rgba(0,0,0,0.4);border:2px solid #fff;background:${color};`;
+  wrapper.style.cssText = `width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;line-height:1;box-shadow:0 1px 4px rgba(0,0,0,0.4);border:2px solid #fff;background:${mutedBg(color)};`;
   wrapper.textContent = emoji;
   return L.divIcon({
     className: "",
@@ -27,23 +27,30 @@ function buildEmojiIcon(emoji: string, color: string): L.DivIcon {
   });
 }
 
+interface MarkerEmojiColor {
+  emoji: string;
+  // Set when a main-tag category has its own custom saved color (from the tag's color picker) —
+  // takes priority over the emoji-derived default so a custom tag color actually shows on the map.
+  color: string | null;
+}
+
 // Priority: place's main-tag emoji (alphabetically first if it has several) -> trip's tab emoji ->
 // default landmark pin. Pure lookup (no Leaflet objects) so it's cheap to recompute for a signature.
 function resolveMarkerEmoji(
   place: Place,
   categoriesById: Map<string, Category>,
   categoryIdsByPlace: Map<string, string[]>,
-  tripIconById: Map<string, string | null>
-): string {
+  tripDataById: Map<string, { icon: string | null; color: string | null }>
+): MarkerEmojiColor {
   const mainCats = (categoryIdsByPlace.get(place.id) || [])
     .map((id) => categoriesById.get(id))
     .filter((c): c is Category => !!c && c.is_main && !!c.icon)
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  if (mainCats.length > 0) return mainCats[0].icon!;
+  if (mainCats.length > 0) return { emoji: mainCats[0].icon!, color: mainCats[0].color };
 
-  const tripIcon = place.trip_id ? tripIconById.get(place.trip_id) : null;
-  return tripIcon || DEFAULT_MARKER_EMOJI;
+  const trip = place.trip_id ? tripDataById.get(place.trip_id) : null;
+  return { emoji: trip?.icon || DEFAULT_MARKER_EMOJI, color: trip?.color ?? null };
 }
 
 interface MarkerVisual {
@@ -59,10 +66,10 @@ function resolveMarkerVisual(
   place: Place,
   categoriesById: Map<string, Category>,
   categoryIdsByPlace: Map<string, string[]>,
-  tripIconById: Map<string, string | null>
+  tripDataById: Map<string, { icon: string | null; color: string | null }>
 ): MarkerVisual {
-  const emoji = resolveMarkerEmoji(place, categoriesById, categoryIdsByPlace, tripIconById);
-  const color = autoColorForEmoji(emoji);
+  const { emoji, color: customColor } = resolveMarkerEmoji(place, categoriesById, categoryIdsByPlace, tripDataById);
+  const color = customColor || autoColorForEmoji(emoji);
   return { icon: buildEmojiIcon(emoji, color), signature: `${emoji}|${color}` };
 }
 
@@ -87,7 +94,7 @@ export default function PlacesMarkers() {
   const [places, setPlaces] = useState<Place[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [placeCategories, setPlaceCategories] = useState<PlaceCategory[]>([]);
-  const [trips, setTrips] = useState<Pick<Trip, "id" | "icon">[]>([]);
+  const [trips, setTrips] = useState<Pick<Trip, "id" | "icon" | "color">[]>([]);
   const router = useRouter();
 
   useEffect(() => {
@@ -146,11 +153,11 @@ export default function PlacesMarkers() {
     }
     return map;
   }, [placeCategories]);
-  const tripIconById = useMemo(() => new Map(trips.map((t) => [t.id, t.icon])), [trips]);
+  const tripDataById = useMemo(() => new Map(trips.map((t) => [t.id, { icon: t.icon, color: t.color }])), [trips]);
   // Memoized per place so the icon object identity stays stable across unrelated re-renders.
   const markerVisuals = useMemo(
-    () => new Map(places.map((p) => [p.id, resolveMarkerVisual(p, categoriesById, categoryIdsByPlace, tripIconById)])),
-    [places, categoriesById, categoryIdsByPlace, tripIconById]
+    () => new Map(places.map((p) => [p.id, resolveMarkerVisual(p, categoriesById, categoryIdsByPlace, tripDataById)])),
+    [places, categoriesById, categoryIdsByPlace, tripDataById]
   );
 
   // Open details modal and set placeId in URL

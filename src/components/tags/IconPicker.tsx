@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { Search, X } from "lucide-react";
-import { autoColorForEmoji } from "@/lib/color";
+import { autoColorForEmoji, mutedBg } from "@/lib/color";
 import emojiData from "unicode-emoji-json/data-by-emoji.json";
 import orderedEmoji from "unicode-emoji-json/data-ordered-emoji.json";
 
@@ -53,16 +53,25 @@ const PANEL_WIDTH = 320;
 const PANEL_HEIGHT = 400;
 
 // Google-Maps-style icon picker: pick an emoji from a searchable ~1900-emoji grid instead of typing
-// free text. The circle color is always auto-derived from the chosen emoji (autoColorForEmoji) — no
-// separate color input needed, and every swatch preview is exactly what the map marker will look like.
-// The dropdown itself renders in a portal to document.body so it always sits above modals (which can
-// have their own z-index/overflow-clipping) and never gets clipped by a scrollable modal body.
-export default function IconPicker({ value, onChange }: { value: string; onChange: (emoji: string) => void }) {
+// free text. The trigger's circle color defaults to the emoji-derived one (autoColorForEmoji) but
+// reflects an optional custom `color` override (from the adjacent ColorPicker badge) when given, so
+// the preview always matches what the map marker will actually look like. The dropdown itself renders
+// in a portal to document.body so it always sits above modals and never gets clipped by a scrollable
+// modal body.
+export default function IconPicker({
+  value,
+  onChange,
+  color,
+}: {
+  value: string;
+  onChange: (emoji: string) => void;
+  color?: string | null;
+}) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
-  const color = autoColorForEmoji(value);
+  const swatchColor = mutedBg(color || autoColorForEmoji(value));
 
   const updatePosition = () => {
     const rect = btnRef.current?.getBoundingClientRect();
@@ -105,7 +114,7 @@ export default function IconPicker({ value, onChange }: { value: string; onChang
         type="button"
         onClick={() => setOpen((o) => !o)}
         title="Wybierz ikonę"
-        style={{ backgroundColor: color }}
+        style={{ backgroundColor: swatchColor }}
         className="w-10 h-10 rounded-full flex items-center justify-center text-lg border-2 border-base-300 shadow-sm cursor-pointer hover:opacity-90 transition-opacity"
       >
         {value}
@@ -166,7 +175,7 @@ export default function IconPicker({ value, onChange }: { value: string; onChang
                             closeAll();
                           }}
                           title={entry.name}
-                          style={{ backgroundColor: autoColorForEmoji(entry.emoji) }}
+                          style={{ backgroundColor: mutedBg(autoColorForEmoji(entry.emoji)) }}
                           className={`w-8 h-8 rounded-full flex items-center justify-center text-base cursor-pointer border-2 transition-transform hover:scale-110 ${
                             value === entry.emoji ? "border-base-content" : "border-base-300"
                           }`}
@@ -192,7 +201,7 @@ export default function IconPicker({ value, onChange }: { value: string; onChang
                               closeAll();
                             }}
                             title={entry.name}
-                            style={{ backgroundColor: autoColorForEmoji(entry.emoji) }}
+                            style={{ backgroundColor: mutedBg(autoColorForEmoji(entry.emoji)) }}
                             className={`w-8 h-8 rounded-full flex items-center justify-center text-base cursor-pointer border-2 transition-transform hover:scale-110 ${
                               value === entry.emoji ? "border-base-content" : "border-base-300"
                             }`}

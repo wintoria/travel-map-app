@@ -8,6 +8,7 @@ import { isOffline, PENDING_SYNC_MESSAGE } from "@/lib/offline/network";
 import { notifyPendingSync } from "@/lib/toast";
 import { AppEvent, emit } from "@/lib/events";
 import IconPicker from "./IconPicker";
+import ColorPicker from "./ColorPicker";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
 import toast from "react-hot-toast";
@@ -22,6 +23,7 @@ export default function ManageTagsModal() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editIcon, setEditIcon] = useState("");
+  const [editColor, setEditColor] = useState<string | null>(null);
   const [editIsMain, setEditIsMain] = useState(false);
   // State for tracking which tag is pending deletion
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -30,6 +32,7 @@ export default function ManageTagsModal() {
   const [showNewForm, setShowNewForm] = useState(false);
   const [newName, setNewName] = useState("");
   const [newIcon, setNewIcon] = useState(DEFAULT_MARKER_EMOJI);
+  const [newColor, setNewColor] = useState<string | null>(null);
   const [newIsMain, setNewIsMain] = useState(false);
 
   const fetchCategories = async () => {
@@ -63,12 +66,13 @@ export default function ManageTagsModal() {
     setEditingId(cat.id);
     setEditName(cat.name);
     setEditIcon(cat.icon || DEFAULT_MARKER_EMOJI);
+    setEditColor(cat.color);
     setEditIsMain(cat.is_main);
   };
 
   const handleUpdate = async (id: string) => {
     try {
-      const updated = await updateCategory(id, { name: editName.trim(), icon: editIcon, color: autoColorForEmoji(editIcon), is_main: editIsMain });
+      const updated = await updateCategory(id, { name: editName.trim(), icon: editIcon, color: editColor ?? autoColorForEmoji(editIcon), is_main: editIsMain });
       setCategories(prev => sortCategories(prev.map(c => c.id === id ? updated : c)));
       setEditingId(null);
       if (updated._pendingSync) notifyPendingSync(PENDING_SYNC_MESSAGE);
@@ -82,11 +86,12 @@ export default function ManageTagsModal() {
   const handleCreate = async () => {
     if (!newName.trim()) return;
     try {
-      const category = await createCategory({ name: newName.trim(), icon: newIcon, color: autoColorForEmoji(newIcon), is_main: newIsMain });
+      const category = await createCategory({ name: newName.trim(), icon: newIcon, color: newColor ?? autoColorForEmoji(newIcon), is_main: newIsMain });
       setCategories(prev => sortCategories([...prev, category]));
       setShowNewForm(false);
       setNewName("");
       setNewIcon(DEFAULT_MARKER_EMOJI);
+      setNewColor(null);
       setNewIsMain(false);
       if (category._pendingSync) notifyPendingSync(PENDING_SYNC_MESSAGE);
       emit(AppEvent.categoriesUpdated);
@@ -123,7 +128,17 @@ export default function ManageTagsModal() {
       {/* New-tag form */}
       {showNewForm && (
         <div className="bg-base-100/50 p-3 border-b border-base-300 flex flex-wrap gap-2 items-center animate-in fade-in slide-in-from-top-2">
-          <IconPicker value={newIcon} onChange={setNewIcon} />
+          <div className="flex items-start">
+            <IconPicker
+              value={newIcon}
+              color={newColor}
+              onChange={(emoji) => {
+                setNewIcon(emoji);
+                setNewColor(null);
+              }}
+            />
+            <ColorPicker color={newColor ?? autoColorForEmoji(newIcon)} onChange={setNewColor} />
+          </div>
           <input
             type="text"
             placeholder="Nazwa tagu"
@@ -164,7 +179,17 @@ export default function ManageTagsModal() {
                     <div className="flex flex-col gap-2">
                       {/* Inputs row */}
                       <div className="flex gap-2 items-center w-full">
-                        <IconPicker value={editIcon} onChange={setEditIcon} />
+                        <div className="flex items-start">
+                          <IconPicker
+                            value={editIcon}
+                            color={editColor}
+                            onChange={(emoji) => {
+                              setEditIcon(emoji);
+                              setEditColor(null);
+                            }}
+                          />
+                          <ColorPicker color={editColor ?? autoColorForEmoji(editIcon)} onChange={setEditColor} />
+                        </div>
                         <input
                           type="text"
                           value={editName}
@@ -182,10 +207,10 @@ export default function ManageTagsModal() {
                       </div>
                       {/* Buttons row */}
                       <div className="flex gap-2 w-full mt-1">
-                        <Button onClick={() => setEditingId(null)} variant="secondary" fullWidth>
+                        <Button onClick={() => setEditingId(null)} variant="secondary" className="flex-1">
                           Anuluj
                         </Button>
-                        <Button onClick={() => handleUpdate(cat.id)} variant="primary" fullWidth>
+                        <Button onClick={() => handleUpdate(cat.id)} variant="primary" className="flex-1">
                           Zapisz
                         </Button>
                       </div>

@@ -5,6 +5,7 @@ import { getBrightness, effectiveTagColor, autoColorForEmoji, DEFAULT_MARKER_EMO
 import { fetchCategories, createCategory, sortCategories } from "@/lib/api/categories";
 import { AppEvent, emit } from "@/lib/events";
 import IconPicker from "./IconPicker";
+import ColorPicker from "./ColorPicker";
 import Button from "@/components/ui/Button";
 import toast from "react-hot-toast";
 import type { Category } from "@/lib/types";
@@ -16,6 +17,7 @@ export default function TagSelector({ initialSelected = [] }: { initialSelected?
 
   const [newName, setNewName] = useState("");
   const [newIcon, setNewIcon] = useState(DEFAULT_MARKER_EMOJI);
+  const [newColor, setNewColor] = useState<string | null>(null);
   const [newIsMain, setNewIsMain] = useState(false);
 
   useEffect(() => {
@@ -32,12 +34,13 @@ export default function TagSelector({ initialSelected = [] }: { initialSelected?
     if (!newName.trim()) return;
 
     try {
-      const category = await createCategory({ name: newName.trim(), icon: newIcon, color: autoColorForEmoji(newIcon), is_main: newIsMain });
+      const category = await createCategory({ name: newName.trim(), icon: newIcon, color: newColor ?? autoColorForEmoji(newIcon), is_main: newIsMain });
       setCategories(prev => sortCategories([...prev, category]));
       setSelectedIds(prev => [...prev, category.id]);
       setShowNewForm(false);
       setNewName("");
       setNewIcon(DEFAULT_MARKER_EMOJI);
+      setNewColor(null);
       setNewIsMain(false);
       emit(AppEvent.categoriesUpdated);
     } catch (error) {
@@ -99,7 +102,17 @@ export default function TagSelector({ initialSelected = [] }: { initialSelected?
 
       {showNewForm && (
         <div className="bg-base-100/50 p-3 rounded-lg border border-base-300 flex flex-wrap gap-2 items-center animate-in fade-in slide-in-from-top-2">
-          <IconPicker value={newIcon} onChange={setNewIcon} />
+          <div className="flex items-start">
+            <IconPicker
+              value={newIcon}
+              color={newColor}
+              onChange={(emoji) => {
+                setNewIcon(emoji);
+                setNewColor(null);
+              }}
+            />
+            <ColorPicker color={newColor ?? autoColorForEmoji(newIcon)} onChange={setNewColor} />
+          </div>
           <input
             type="text"
             placeholder="Nazwa tagu"

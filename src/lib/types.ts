@@ -25,6 +25,7 @@ export interface Trip {
   id: string;
   name: string;
   icon: string | null;
+  color: string | null;
   parent_id: string | null;
   created_at: string;
   updated_at: string;

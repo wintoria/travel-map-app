@@ -37,7 +37,7 @@ export function effectiveTagColor(rawColor: string | null | undefined): string {
 // Google-Maps-style category colors for map marker circles. Curated by emoji so a marker's color
 // always matches what the emoji represents (food = orange, nature = green, ...) without the user
 // having to pick one.
-const MARKER_PALETTE = {
+export const MARKER_PALETTE = {
   red: "#EA4335",
   orange: "#FA7B17",
   amber: "#F9AB00",
@@ -93,3 +93,15 @@ export function autoColorForEmoji(emoji: string | null | undefined): string {
 
 // Landmark glyph used for map markers that have no main tag and no trip icon — classic Google-pin red.
 export const DEFAULT_MARKER_EMOJI = "📍";
+
+// Blends a color at `opacity` over a white backdrop — used to soften the vivid MARKER_PALETTE hues
+// for marker-circle/icon-picker backgrounds without changing the underlying color values themselves
+// (tag chips and the color-override picker still show the true, full-saturation color).
+export function mutedBg(hex: string, opacity: number = 0.6): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  const blend = (channel: number) => Math.round(channel * opacity + 255 * (1 - opacity));
+  const toHex = (channel: number) => blend(channel).toString(16).padStart(2, "0");
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
