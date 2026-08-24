@@ -111,7 +111,7 @@ export default function ImportModal() {
 
           // Perform UPSERT to database
           const { error } = await bulkUpsertPlaces(placesToInsert, "trip_id, google_maps_url");
-          if (error) throw error;
+          if (error) throw new Error(error.message || "Błąd zapisu do bazy danych.");
 
           setMessage({ text: `Sukces! Zapisano ${placesToInsert.length} miejsc (JSON).`, type: "success" });
           emit(AppEvent.tripsUpdated);
@@ -166,6 +166,17 @@ export default function ImportModal() {
              throw new Error("Brak danych w pliku CSV.");
           }
 
+          // Drop rows sharing the same Google Maps URL — the upsert conflict target is
+          // (trip_id, google_maps_url), and Postgres rejects a batch that hits the same
+          // conflict key twice with "ON CONFLICT DO UPDATE command cannot affect row a second time".
+          const seenUrls = new Set<string>();
+          const uniquePlaces = placesToInsert.filter(p => {
+            if (!p.google_maps_url) return true;
+            if (seenUrls.has(p.google_maps_url)) return false;
+            seenUrls.add(p.google_maps_url);
+            return true;
+          });
+
           // Fetch existing places in this folder that already have valid coordinates
           const { data: existingPlaces } = await supabase
             .from("places")
@@ -174,7 +185,7 @@ export default function ImportModal() {
             .not("lat", "is", null);
 
           if (existingPlaces && existingPlaces.length > 0) {
-            placesToInsert.forEach(newPlace => {
+            uniquePlaces.forEach(newPlace => {
               // Find a match based on Google Maps URL or exact Name
               const match = existingPlaces.find(ep =>
                 (newPlace.google_maps_url && ep.google_maps_url === newPlace.google_maps_url) ||
@@ -190,16 +201,16 @@ export default function ImportModal() {
           }
 
           // Perform UPSERT to database
-          const { error } = await bulkUpsertPlaces(placesToInsert, "trip_id, google_maps_url");
-          if (error) throw error;
+          const { error } = await bulkUpsertPlaces(uniquePlaces, "trip_id, google_maps_url");
+          if (error) throw new Error(error.message || "Błąd zapisu do bazy danych.");
 
           emit(AppEvent.tripsUpdated);
 
           // Calculate how many places are missing coordinates for the success message
-          const missingCoordsCount = placesToInsert.filter(p => p.lat === null).length;
+          const missingCoordsCount = uniquePlaces.filter(p => p.lat === null).length;
 
           if (missingCoordsCount > 0) {
-            setMessage({ text: `Zaimportowano ${placesToInsert.length} miejsc. Szukam współrzędnych dla ${missingCoordsCount}...`, type: "success" });
+            setMessage({ text: `Zaimportowano ${uniquePlaces.length} miejsc. Szukam współrzędnych dla ${missingCoordsCount}...`, type: "success" });
 
             // Look up coordinates by place name for anything the import left without lat/lng
             // (Google's "Zapisane miejsca" export links carry no @lat,lng — only a CID hash).
@@ -212,11 +223,11 @@ export default function ImportModal() {
             emit(AppEvent.tripsUpdated);
 
             setMessage({
-              text: `Sukces! Zaimportowano ${placesToInsert.length} miejsc. Znaleziono współrzędne dla ${found} z ${missingCoordsCount} brakujących.`,
+              text: `Sukces! Zaimportowano ${uniquePlaces.length} miejsc. Znaleziono współrzędne dla ${found} z ${missingCoordsCount} brakujących.`,
               type: "success",
             });
           } else {
-            setMessage({ text: `Sukces! Zaimportowano ${placesToInsert.length} miejsc.`, type: "success" });
+            setMessage({ text: `Sukces! Zaimportowano ${uniquePlaces.length} miejsc.`, type: "success" });
           }
 
           setLoading(false);
