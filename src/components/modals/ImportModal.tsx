@@ -5,7 +5,8 @@ import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
 import { supabase } from "@/lib/supabase";
 import { AppEvent, emit } from "@/lib/events";
-import { bulkUpsertPlaces } from "@/lib/api/places";
+import { bulkUpsertPlaces, fetchPendingPlacesByTrip } from "@/lib/api/places";
+import { batchGeocodePlaces } from "@/lib/geocode";
 
 // Shape of a Google Takeout GeoJSON feature (only the fields we read).
 interface ImportProps {
@@ -192,14 +193,31 @@ export default function ImportModal() {
           const { error } = await bulkUpsertPlaces(placesToInsert, "trip_id, google_maps_url");
           if (error) throw error;
 
+          emit(AppEvent.tripsUpdated);
+
           // Calculate how many places are missing coordinates for the success message
           const missingCoordsCount = placesToInsert.filter(p => p.lat === null).length;
-          const successMessage = missingCoordsCount > 0
-            ? `Sukces! Zaimportowano ${placesToInsert.length} miejsc. (${missingCoordsCount} do uzupełnienia)`
-            : `Sukces! Zaimportowano ${placesToInsert.length} miejsc.`;
 
-          setMessage({ text: successMessage, type: "success" });
-          emit(AppEvent.tripsUpdated);
+          if (missingCoordsCount > 0) {
+            setMessage({ text: `Zaimportowano ${placesToInsert.length} miejsc. Szukam współrzędnych dla ${missingCoordsCount}...`, type: "success" });
+
+            // Look up coordinates by place name for anything the import left without lat/lng
+            // (Google's "Zapisane miejsca" export links carry no @lat,lng — only a CID hash).
+            const toGeocode = await fetchPendingPlacesByTrip(selectedTrip);
+            const { found } = await batchGeocodePlaces(toGeocode, {
+              onProgress: (current, total) => {
+                setMessage({ text: `Szukam współrzędnych... (${current}/${total})`, type: "success" });
+              },
+            });
+            emit(AppEvent.tripsUpdated);
+
+            setMessage({
+              text: `Sukces! Zaimportowano ${placesToInsert.length} miejsc. Znaleziono współrzędne dla ${found} z ${missingCoordsCount} brakujących.`,
+              type: "success",
+            });
+          } else {
+            setMessage({ text: `Sukces! Zaimportowano ${placesToInsert.length} miejsc.`, type: "success" });
+          }
 
           setLoading(false);
           setFile(null);

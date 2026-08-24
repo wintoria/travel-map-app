@@ -178,6 +178,26 @@ export async function fetchPendingPlaces(): Promise<Pick<Place, "id" | "name" | 
   return data || [];
 }
 
+// Places missing coordinates within a single trip (used to auto-geocode right after a CSV/JSON import).
+export async function fetchPendingPlacesByTrip(tripId: string): Promise<Pick<Place, "id" | "name">[]> {
+  if (isOffline()) {
+    const cached = await getCachedPlaces();
+    return cached.filter((p) => p.lat === null && p.trip_id === tripId).map(({ id, name }) => ({ id, name }));
+  }
+  const { data, error } = await supabase
+    .from("places")
+    .select("id, name")
+    .eq("trip_id", tripId)
+    .is("lat", null);
+
+  if (error) {
+    if (!isNetworkError(error)) return [];
+    const cached = await getCachedPlaces();
+    return cached.filter((p) => p.lat === null && p.trip_id === tripId).map(({ id, name }) => ({ id, name }));
+  }
+  return data || [];
+}
+
 // A place plus its category relations, as fetched for the edit form.
 export type EditPlace = Place & { place_categories?: { category_id: string }[] };
 

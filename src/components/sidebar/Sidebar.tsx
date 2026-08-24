@@ -2,10 +2,10 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
-import { OpenStreetMapProvider } from "leaflet-geosearch"
 import { fetchTrips } from "@/lib/api/trips";
 import { fetchCategories, sortCategories } from "@/lib/api/categories";
-import { fetchPendingPlaces as loadPendingPlaces, deletePlace, updatePlaceCoords } from "@/lib/api/places";
+import { fetchPendingPlaces as loadPendingPlaces, deletePlace } from "@/lib/api/places";
+import { batchGeocodePlaces } from "@/lib/geocode";
 import { getAllDescendants } from "@/lib/tree";
 import { AppEvent, emit } from "@/lib/events";
 import { currentParams, openModal, pushParams } from "@/lib/url";
@@ -73,48 +73,15 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     setGeocodeSummary(null); // Clear previous summary
     const placesToProcess = [...pendingPlaces];
     setGeocodeProgress({ isRunning: true, current: 0, total: placesToProcess.length, found: 0 });
-    
-    const provider = new OpenStreetMapProvider();
-    let foundCount = 0;
 
-    for (let i = 0; i < placesToProcess.length; i++) {
-      const place = placesToProcess[i];
-      setGeocodeProgress(prev => ({ ...prev, current: i + 1 }));
-
-      try {
-        const cleanQuery = place.name.replace(/[^\w\s\u0100-\u024F]/gi, '').trim();
-        const results = await provider.search({ query: cleanQuery });
-
-        if (results && results.length > 0) {
-          const nameWords = cleanQuery.toLowerCase().split(/\s+/).filter((w: string) => w.length > 2);
-          
-          const safeMatches = results.filter(match => {
-            const raw = match.raw as unknown as Record<string, unknown>;
-            const isNotJustCity = raw.class !== 'boundary' && raw.class !== 'place';
-            const hasTextMatch = nameWords.some((w: string) => match.label.toLowerCase().includes(w));
-            return isNotJustCity && hasTextMatch;
-          });
-
-          // STRICT RULE: Only save if exactly one match
-          if (safeMatches.length === 1) {
-            const bestMatch = safeMatches[0];
-            const { error } = await updatePlaceCoords(place.id, bestMatch.y, bestMatch.x);
-
-            if (!error) {
-              foundCount++;
-              setPendingPlaces(prev => prev.filter(p => p.id !== place.id));
-              emit(AppEvent.placesUpdated);
-            }
-          }
+    const { found: foundCount } = await batchGeocodePlaces(placesToProcess, {
+      onProgress: (current) => setGeocodeProgress(prev => ({ ...prev, current })),
+      onResult: (place, wasFound) => {
+        if (wasFound) {
+          setPendingPlaces(prev => prev.filter(p => p.id !== place.id));
         }
-      } catch (err) {
-        console.error(`Geocoding error for ${place.name}`, err);
-      }
-
-      if (i < placesToProcess.length - 1) {
-        await new Promise(resolve => setTimeout(resolve, 1500));
-      }
-    }
+      },
+    });
 
     setGeocodeProgress({ isRunning: false, current: 0, total: 0, found: 0 });
     setGeocodeSummary(`Zakończono! Znaleziono automatycznie: ${foundCount} z ${placesToProcess.length}.\nReszta (${placesToProcess.length - foundCount}) wymaga ręcznego uzupełnienia.`);
